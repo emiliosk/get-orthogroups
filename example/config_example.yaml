@@ -1,0 +1,55 @@
+# Example Configuration for testing the pipeline
+# To run this example: 
+# snakemake --configfile example/config_example.yaml --cores 1
+
+ensembl_version: "109"
+
+paths:
+  metadata: "example/input/gene_metadata/protein_coding_genes_example.csv"
+  transcripts: "example/input/DB/ensembl_v109_transcripts_example.csv"
+  raw_homologies_dir: "input/DB/ensembl_homologies_raw"
+  genespace_coords: "input/DB/genespace_coords"
+  fasta_dir: "input/DB/canonical_transcripts"
+  species_tree: "example/input/DB/species_tree.nwk"
+
+tools:
+  mafft: "mafft"
+  fasttree: "FastTree"
+  treerecs: "treerecs"
+
+output_dir: "example/output_example"
+
+symbol_reference_species: "HUMAN"
+
+species:
+  HUMAN:
+    scientific_name: "homo_sapiens"
+    assembly: "GRCh38"
+    atlas_name: "human"
+  MOUSE:
+    scientific_name: "mus_musculus"
+    assembly: "GRCm39"
+    atlas_name: "mouse"
+  RATNO:
+    scientific_name: "rattus_norvegicus"
+    assembly: "mRatBN7.2"
+    atlas_name: "rat"
+  MACFA:
+    scientific_name: "macaca_fascicularis"
+    assembly: "Macaca_fascicularis_6.0"
+    atlas_name: "macaque"
+  PIGXX:
+    scientific_name: "sus_scrofa"
+    assembly: "Sscrofa11.1"
+    atlas_name: "pig"
+
+synteny:
+  goc_window: 5
+  strict_threshold: 0.3
+  lifeline_threshold: 0.3
+  identity_threshold: 70.0
+
+refinement:
+  strict_trim: false
+  lifeline_trim: false
+  lifeline_tree_trim: false

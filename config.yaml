@@ -1,0 +1,70 @@
+# Configuration for Ensembl-Only Synteny-Adjusted Orthology Pipeline
+
+ensembl_version: "109"
+
+# Paths to input databases relative to the pipeline directory
+paths:
+  metadata: "input/gene_metadata/protein_coding_genes.csv"
+  raw_homologies_dir: "input/DB/ensembl_homologies_raw"
+  genespace_coords: "input/DB/genespace_coords"
+  fasta_dir: "input/DB/canonical_transcripts"
+  species_tree: "input/DB/species_tree.nwk"
+
+# Binary paths for phylogeny tools
+# -----------------------------------------------------------------------------
+# REPRODUCIBILITY NOTE:
+# mafft and fasttree should be installed in the conda environment (envs/orthology_env.yaml).
+# treerecs is an external requirement. If not in your PATH, provide the absolute path below.
+# -----------------------------------------------------------------------------
+tools:
+  mafft: "mafft"
+  fasttree: "FastTree"
+  treerecs: "/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs"
+
+# Output directory for the new pipeline results
+output_dir: "ensembl_pipeline_output"
+
+# Reference species for consensus symbols (defaults to first in list if not set)
+symbol_reference_species: "HUMAN"
+
+# Target species definition
+# Ensure the scientific name matches the Ensembl homology file prefixes
+# e.g., "homo_sapiens.tsv.gz"
+species:
+  HUMAN:
+    scientific_name: "homo_sapiens"
+    assembly: "GRCh38"
+    atlas_name: "human"
+  MOUSE:
+    scientific_name: "mus_musculus"
+    assembly: "GRCm39"
+    atlas_name: "mouse"
+  RATNO:
+    scientific_name: "rattus_norvegicus"
+    assembly: "mRatBN7.2" # NOTE: Change to "GRCr8" if using Ensembl 115+
+    atlas_name: "rat"
+  MACFA:
+    scientific_name: "macaca_fascicularis"
+    assembly: "Macaca_fascicularis_6.0"
+    atlas_name: "macaque"
+  PIGXX:
+    scientific_name: "sus_scrofa"
+    assembly: "Sscrofa11.1"
+    atlas_name: "pig"
+  # DOGXX:
+  #   scientific_name: "canis_lupus_familiaris"
+  #   assembly: "ROS_Cfam_1.0"
+  #   atlas_name: "dog"
+
+# Synteny Parameters
+synteny:
+  goc_window: 5
+  strict_threshold: 0.3
+  lifeline_threshold: 0.3
+  identity_threshold: 70.0
+
+# Optional Post-Processing Refinements (Disabled by default)
+refinement:
+  strict_trim: false
+  lifeline_trim: false
+  lifeline_tree_trim: false

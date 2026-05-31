@@ -1,0 +1,15 @@
+name: ensembl_orthology
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pandas
+  - ete3
+  - networkx
+  - scikit-learn
+  - biopython
+  - snakemake-minimal
+  - mafft
+  - fasttree
+  - requests

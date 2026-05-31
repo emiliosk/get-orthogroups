@@ -1,0 +1,24 @@
+# Python/Snakemake Temporary Files
+.snakemake/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Large Raw Data (Auto-fetched by pipeline)
+input/DB/raw_fastas/
+input/DB/gff3/
+input/DB/canonical_transcripts/
+input/DB/genespace_coords/
+input/DB/ensembl_homologies_raw/
+
+# Large Production Outputs
+ensembl_pipeline_output/Phylogenetic_Trees/
+# Phylogenetic_Trees.tar.gz (Removed from ignore to allow GitHub upload)
+
+# Logs
+*.log
+slurm-*.out
+
+# OS specific
+.DS_Store
+Thumbs.db
