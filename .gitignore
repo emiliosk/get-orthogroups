@@ -10,9 +10,10 @@ input/DB/gff3/
 input/DB/canonical_transcripts/
 input/DB/genespace_coords/
 input/DB/ensembl_homologies_raw/
-
+sample_plots/
+final_samples/
 # Large Production Outputs
-ensembl_pipeline_output/Phylogenetic_Trees/
+ensembl_pipeline_output/
 # Phylogenetic_Trees.tar.gz (Removed from ignore to allow GitHub upload)
 
 # Logs
