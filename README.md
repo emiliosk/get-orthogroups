@@ -4,9 +4,9 @@
 [![Snakemake](https://img.shields.io/badge/snakemake-≥7.0-brightgreen.svg)](https://snakemake.readthedocs.io/)
 [![Ensembl v115](https://img.shields.io/badge/ensembl-v115-orange.svg)](https://www.ensembl.org/)
 
-An automated, reproducible Snakemake workflow for high-fidelity mammalian orthology inference. The pipeline integrates curated Ensembl Compara homologies, dual-track transitivity clustering, chromosome-aware local synteny (Atlas GOC), and deterministic ortholog ranking to resolve complex one-to-many and many-to-many orthology relationships.
+A Snakemake workflow for mammalian orthology inference. The pipeline integrates curated Ensembl Compara homologies, dual-track transitivity clustering, local synteny (Atlas GOC), and deterministic ortholog ranking to resolve complex one-to-many and many-to-many orthology relationships.
 
-Originally designed for the **Mammalian RNA Atlas**, this package is fully generalized to support arbitrary species sets and Ensembl releases.
+The package is generalized to support arbitrary species sets and Ensembl releases.
 
 ---
 
@@ -14,17 +14,13 @@ Originally designed for the **Mammalian RNA Atlas**, this package is fully gener
 
 * **Dual-Track Transitivity Clustering**:
   * **Standard Orthogroups (`OG_XXXXX`)**: Inclusive transitivity network capturing all sequence-similar homologs across evolutionary lineages.
-  * **High-Confidence Orthogroups (`HQ_XXXXX`)**: Strict network constructed exclusively from curated `is_high_confidence == 1` relationships.
-* **Chromosome-Aware Neighborhood Synteny (Atlas GOC)**:
-  * Calculates local Jaccard similarity across a $\pm 5$ gene flanking window.
-  * Strictly respects chromosome boundaries, preventing sliding windows from bleeding across chromosome ends.
-  * Breaks ties in multi-copy gene families where Ensembl's rigid 4-gene linear GOC is tied or compromised by micro-inversions.
-* **Intelligent Directional Ortholog Ranking (`ortholog_rank`)**:
+  * **High-Confidence Orthogroups (`HQ_XXXXX`)**: Strict network constructed exclusively from Ensembl's curated `is_high_confidence == 1` relationships. Note that these results might exclude true in-paralogs for certain orthogroups, prioritizing the ancestral gene.
+* **Directional Ortholog Ranking (`ortholog_rank`)**:
   * Resolves multi-copy gene arrays by assigning a directional ranking from the perspective of each species.
   * Prioritized multi-tier ranking hierarchy:
-    1. `ens_is_high_confidence` (Ensembl gold-standard curation)
+    1. `ens_is_high_confidence` (Ensembl curation)
     2. `ens_goc_score` (Ensembl global Gene Order Conservation)
-    3. `atlas_goc_score_pairwise` (Local synteny neighborhood support)
+    3. `atlas_goc_score_pairwise` (Our own synteny gene order conservation score based on local Jaccard similarity across a $\pm 5$ gene flanking window)
     4. `min(identity, homology_identity)` (Reciprocal sequence identity)
     5. `ens_wga_coverage` (Whole Genome Alignment coverage)
 * **Zero External Preprocessing**:
