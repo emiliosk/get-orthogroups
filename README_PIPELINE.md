@@ -43,8 +43,8 @@ For full schemas and column requirements, see [USAGE_GUIDE.md](USAGE_GUIDE.md).
 python preprocessing/00_check_pipeline_setup.py
 
 # 2. Run Pipeline via Snakemake
-# Recommended: use --latency-wait to handle filesystem delays
-snakemake --cores 4 --latency-wait 60 --rerun-incomplete
+snakemake --cores 4
+# (If resuming an interrupted run, add --rerun-incomplete)
 
 # 3. View Results Summary
 python scripts/09_generate_summary_stats.py

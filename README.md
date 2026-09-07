@@ -112,8 +112,16 @@ snakemake --configfile example/config_example.yaml --cores 4
 ### Step 3: Run the Production Pipeline
 To run the full pipeline on your target gene annotations:
 ```bash
-snakemake --cores 4 --latency-wait 60 --rerun-incomplete
+snakemake --cores 4
 ```
+
+> [!TIP]
+> **Resuming Interrupted Runs:** If an execution is ever interrupted midway (e.g., via `Ctrl+C` or a compute cluster timeout), add `--rerun-incomplete` to have Snakemake cleanly re-run the unfinished steps:
+> ```bash
+> snakemake --cores 4 --rerun-incomplete
+> ```
+> *(Optional: On shared/NFS cluster storage with filesystem latency, you can also append `--latency-wait 60`)*.
+
 
 ### Step 4: Generate Summary Statistics
 Inspect key metrics, core orthogroup counts, and cardinality breakdowns:
