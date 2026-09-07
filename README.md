@@ -167,7 +167,6 @@ species:
 
 synteny:
   goc_window: 5
-  strict_threshold: 0.3
 ```
 
 ### Unified Metadata Schema (`paths.metadata`)

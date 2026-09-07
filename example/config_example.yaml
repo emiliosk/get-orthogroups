@@ -47,11 +47,4 @@ species:
 
 synteny:
   goc_window: 5
-  strict_threshold: 0.3
-  lifeline_threshold: 0.3
-  identity_threshold: 70.0
 
-refinement:
-  strict_trim: false
-  lifeline_trim: false
-  lifeline_tree_trim: false

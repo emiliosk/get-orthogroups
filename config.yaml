@@ -57,17 +57,9 @@ species:
 # Synteny Parameters
 synteny:
   goc_window: 5
-  strict_threshold: 0.3
-  lifeline_threshold: 0.3
-  identity_threshold: 70.0
-
-# Optional Post-Processing Refinements (Disabled by default)
-refinement:
-  strict_trim: false
-  lifeline_trim: false
-  lifeline_tree_trim: false
 
 # Optional Phylogenetic Tree & MSA computation (Rule 7)
 # Set to false to produce only the Master table & Pairwise tables (Rules 1-6)
 compute_trees: false
+
 
