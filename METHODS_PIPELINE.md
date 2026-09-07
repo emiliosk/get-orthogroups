@@ -72,7 +72,27 @@ This ensures that `OG_00001` will always refer to the same set of genes, even if
 
 ---
 
-## 6. Automated Snakemake Workflow
+## 6. Phylogenetic Reconstruction & Species-Tree Reconciliation
+
+For all multi-gene orthogroups ($\ge 2$ genes), the pipeline builds multiple sequence alignments and phylogenetic trees that integrate sequence evidence with species-tree reconciliation:
+
+### Alignment (`MAFFT`)
+* Canonical peptide sequences are extracted and aligned using **MAFFT** (`--auto`).
+* The `--anysymbol` flag is enabled to handle non-standard amino acid characters, providing full native support for mammalian **selenoproteins** (which contain selenocysteine, `U`).
+
+### Maximum-Likelihood Tree Inference (`FastTree`)
+* For orthogroups with $\ge 3$ genes, initial phylogenetic trees are inferred using **FastTree** with the **Le-Gascuel (LG)** amino acid replacement matrix (`-lg`).
+* FastTree estimates local Shimodaira-Hasegawa (SH)-like branch support values ($0.0 \le \text{support} \le 1.0$).
+
+### Gene Tree–Species Tree Reconciliation (`Treerecs`)
+* Sequence-only gene trees frequently exhibit topological discordance due to short sequence lengths, mutational saturation, or alignment noise. To distinguish true evolutionary events from reconstruction artifacts, trees are reconciled against the user-specified species tree using **Treerecs**:
+  1. **Parsimonious Re-rooting (`-r`)**: FastTree generates unrooted trees. Treerecs determines the optimal evolutionary root that minimizes total gene duplication and loss penalties under the species tree, correcting arbitrary rooting.
+  2. **Branch Support Contraction (`-t 0.8`)**: Branches with SH-like support $< 0.8$ are contracted into polytomies and rearranged parsimoniously to match the species tree topology. This eliminates false duplication and loss calls in clean orthologs while strictly preserving strongly supported ($\ge 0.8$) duplication signals.
+  3. **Robust Fallbacks**: For pairwise 2-gene orthologs, a 2-taxon Newick tree is directly generated. If a complex gene family encounters an unresolvable reconciliation error, the pipeline safely falls back to FastTree's raw ML tree.
+
+---
+
+## 7. Automated Snakemake Workflow
 
 The pipeline is fully automated and handles the entire lifecycle:
 
@@ -82,7 +102,7 @@ The pipeline is fully automated and handles the entire lifecycle:
 4.  **`build_consensus`**: Harmonizes IDs and prepares base pairwise tables.
 5.  **`synteny_refinement`**: Calculates local informational GOC scores and assigns cardinality status tags.
 6.  **`finalize_tables`**: Generates consensus symbols and produces the final `Consensus_Master.tsv`.
-7.  **`compute_trees`** (Optional): Builds MAFFT alignments and FastTree/Treerecs reconciled gene trees.
+7.  **`compute_trees`** (Optional): Builds MAFFT alignments and FastTree/Treerecs reconciled gene trees with rerooting and branch contraction.
 8.  **`generate_summary_stats`**: Compiles overall dataset metrics, species coverage, cardinality breakdowns, and outputs `Summary_Stats.md`.
 
 ---

@@ -42,7 +42,12 @@ The pipeline organizes input files into **Required Configurations**, **Auto-Gene
     mafft: "mafft"
     fasttree: "FastTree"
     treerecs: "treerecs"
+  threads: 8
   output_dir: "ensembl_pipeline_output"
+  compute_trees: true
+  trees:
+    contraction_threshold: 0.8  # Treerecs SH-support threshold to collapse weak branches
+    reroot: true                # Reroot gene trees using species tree reconciliation cost
   species:
     HUMAN:
       scientific_name: "homo_sapiens"
@@ -93,7 +98,30 @@ To move the entire pipeline to a new Ensembl release:
     snakemake --cores 4
     ```
 
-## 3. Validation & Diagnostics
+## 3. Phylogenetic Tree Reconciliation & Execution
+
+The pipeline computes multiple sequence alignments with MAFFT and reconciled phylogenetic trees using FastTree and Treerecs:
+
+* **Configuration**:
+  ```yaml
+  compute_trees: true
+  trees:
+    contraction_threshold: 0.8  # Collapses branches with SH-support < 0.8 to resolve via species tree
+    reroot: true                # Optimal parsimonious re-rooting against species tree
+  ```
+* **Standalone / Re-run Execution**:
+  You can run or refresh the tree computation independently anytime without re-running upstream synteny rules:
+  ```bash
+  # Via Snakemake:
+  snakemake --cores 8 --allowed-rules compute_trees --forcerun compute_trees -- ensembl_pipeline_output/Phylogenetic_Trees.tar.gz
+
+  # Or directly via CLI:
+  python scripts/07_batch_compute_trees.py config.yaml
+  ```
+* **Outputs**:
+  MSAs are saved in `Phylogenetic_Trees/MSAs/` and reconciled Newick trees in `Phylogenetic_Trees/Gene_Trees/`, bundled into `Phylogenetic_Trees.tar.gz`.
+
+## 4. Validation & Diagnostics
 
 ### Pre-flight Setup Check
 Before starting a long run, verify your tools, species tree, and API connectivity:
@@ -109,7 +137,7 @@ python scripts/08_generate_summary_stats.py
 ```
 This provides orthogroup counts by cardinality (1to1, multi-copy) and species coverage statistics.
 
-## 4. Troubleshooting "Incomplete Files"
+## 5. Troubleshooting "Incomplete Files"
 
 If a download is interrupted, Snakemake might flag files as incomplete. To fix:
 ```bash
@@ -118,7 +146,7 @@ snakemake --unlock
 snakemake --rerun-incomplete
 ```
 
-## 5. Manual Preprocessing
+## 6. Manual Preprocessing
 
 If you need to run the FASTA filtering or Coordinate extraction manually:
 ```bash

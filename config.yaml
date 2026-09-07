@@ -38,7 +38,7 @@ tools:
   treerecs: "treerecs"
 
 # Number of parallel threads for synteny and tree computation
-threads: 6
+threads: 8
 
 # Output directory for the new pipeline results
 output_dir: "ensembl_pipeline_output"
@@ -74,6 +74,11 @@ synteny:
   goc_window: 5
 
 # Optional Phylogenetic Tree & MSA computation (Rule 7)
-compute_trees: false
+compute_trees: true
+
+# Tree building & species-tree reconciliation parameters (Rule 7)
+trees:
+  contraction_threshold: 0.8  # Treerecs SH-support threshold to collapse weak branches (default: 0.8; set 'none' to disable)
+  reroot: true                # Reroot gene trees using species tree reconciliation cost
 
 

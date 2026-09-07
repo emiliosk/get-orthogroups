@@ -87,7 +87,8 @@ rule finalize_tables:
 
 rule compute_trees:
     input:
-        master = f"{OUTPUT_DIR}/Consensus_Master.tsv"
+        master = f"{OUTPUT_DIR}/Consensus_Master.tsv",
+        canonical_fastas = expand(config["paths"]["fasta_dir"] + "/{code}.fa", code=SPECIES_CODES)
     output:
         tar = f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz"
     threads:

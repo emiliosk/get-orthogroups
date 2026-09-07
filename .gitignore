@@ -10,6 +10,7 @@ input/DB/gff3/
 input/DB/canonical_transcripts/
 input/DB/genespace_coords/
 input/DB/ensembl_homologies_raw/
+example/input/DB/
 sample_plots/
 final_samples/
 # Large Production Outputs

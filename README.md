@@ -170,9 +170,15 @@ tools:
   fasttree: "FastTree"
   treerecs: "treerecs"
 
+threads: 8
 output_dir: "ensembl_pipeline_output"
 symbol_reference_species: "HUMAN"
-compute_trees: false
+compute_trees: true
+
+# Tree building & species-tree reconciliation parameters (Rule 7)
+trees:
+  contraction_threshold: 0.8  # Treerecs SH-support threshold to collapse weak branches (default: 0.8)
+  reroot: true                # Reroot gene trees using species tree reconciliation cost
 
 species:
   HUMAN:
@@ -224,7 +230,7 @@ All outputs are saved to `ensembl_pipeline_output/`:
    * Whole genome alignment coverage (`ens_wga_coverage`) — *[Ensembl]*
    * Confidence flags (`ens_is_high_confidence`) — *[Ensembl]*
    * Directional ranks (`ortholog_rank_{SP1}`, `ortholog_rank_{SP2}`) — *[Custom Pipeline Metric]*
-3. **`Phylogenetic_Trees.tar.gz`** (Optional): Generated when `compute_trees: true`. Contains MAFFT multiple sequence alignments and Treerecs reconciled phylogenetic trees for all multi-gene orthogroups.
+3. **`Phylogenetic_Trees.tar.gz`** (Optional): Generated when `compute_trees: true`. Contains MAFFT multiple sequence alignments (`MSAs/`) and Treerecs reconciled phylogenetic trees (`Gene_Trees/`) for all multi-gene orthogroups ($\ge 2$ genes), featuring species-tree parsimonious re-rooting, branch support contraction ($0.8$), and full selenoprotein compatibility.
 
 ---
 
