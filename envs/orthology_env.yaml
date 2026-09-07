@@ -7,9 +7,7 @@ dependencies:
   - pandas
   - numpy
   - pyyaml
-  - ete3
   - networkx
-  - scikit-learn
   - biopython
   - snakemake-minimal
   - mafft
