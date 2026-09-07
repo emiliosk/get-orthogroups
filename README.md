@@ -213,6 +213,20 @@ All outputs are saved to `ensembl_pipeline_output/`:
 * **[METHODS_PIPELINE.md](METHODS_PIPELINE.md)**: In-depth methodological explanation of dual-track transitivity, cardinality tagging, and TreeRecs reconciliation.
 * **[METRICS_AND_RANKING.md](METRICS_AND_RANKING.md)**: Formal mathematical definitions of GOC scores and the multi-tier ranking algorithm.
 
+## Citation
+
+If you use this pipeline or data in your research, please cite:
+
+```bibtex
+@article{skarwan2026orthology,
+  author    = {Skarwan, Emilio},
+  title     = {Ensembl Synteny-Adjusted Orthology Pipeline: Graph transitivity and local gene order for mammalian comparative genomics},
+  journal   = {Manuscript in preparation},
+  year      = {2026},
+  url       = {https://github.com/emiliosk/get-orthogroups}
+}
+```
+
 ---
 
 ## License

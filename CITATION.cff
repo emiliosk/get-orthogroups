@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it as below."
+authors:
+  - family-names: "Skarwan"
+    given-names: "Emilio"
+title: "Ensembl Synteny-Adjusted Orthology Pipeline"
+version: "0.1.0"
+date-released: "2026-09-07"
+url: "https://github.com/emiliosk/get-orthogroups"
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Skarwan"
+      given-names: "Emilio"
+  title: "Ensembl Synteny-Adjusted Orthology Pipeline: Graph transitivity and local gene order for mammalian comparative genomics"
+  journal: "Manuscript in preparation"
+  year: 2026
