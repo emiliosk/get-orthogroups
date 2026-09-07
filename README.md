@@ -4,7 +4,7 @@
 [![Snakemake](https://img.shields.io/badge/snakemake-≥7.0-brightgreen.svg)](https://snakemake.readthedocs.io/)
 [![Ensembl v115](https://img.shields.io/badge/ensembl-v115-orange.svg)](https://www.ensembl.org/)
 
-A Snakemake workflow for mammalian orthology inference and multi-copy ortholog resolution. The pipeline processes Ensembl Compara pairwise homologies via dual-track transitivity clustering, evaluates local gene-order conservation using a chromosome-bounded neighborhood Jaccard metric, and ranks multi-copy orthologs through a sequential hierarchy of sequence and synteny criteria.
+A Snakemake workflow for mammalian orthology inference. The pipeline processes Ensembl Compara pairwise homologies via dual-track transitivity clustering, evaluates local gene-order conservation using a chromosome-bounded neighborhood Jaccard metric, and ranks multi-copy orthologs through a sequential hierarchy of sequence and synteny criteria.
 
 The workflow is configurable for arbitrary species sets and Ensembl releases.
 
@@ -14,12 +14,10 @@ The workflow is configurable for arbitrary species sets and Ensembl releases.
 
 * **Dual-Track Transitivity Clustering**:
   * **Standard Orthogroups (`OG_XXXXX`)**: Connected components constructed from all pairwise Ensembl orthology calls. Captures full gene families, including tandem duplications and recent lineage-specific expansions.
-  * **High-Confidence Orthogroups (`HQ_XXXXX`)**: Connected components restricted to pairwise links meeting Ensembl's `is_high_confidence == 1` threshold. Because Ensembl's Whole Genome Alignment (WGA) netting criteria generally select a single reciprocal match in tandem duplicate regions, this track prioritizes ancestral syntenic anchors and may separate secondary in-paralogs into singletons.
-* **Local Synteny Scoring (`atlas_goc_score_pairwise`) [Custom Pipeline Metric]**:
+  * **High-Confidence Orthogroups (`HQ_XXXXX`)**: Connected components restricted to pairwise links meeting Ensembl's `is_high_confidence == 1` threshold. This track prioritizes ancestral syntenic anchors and may separate secondary in-paralogs into singletons.
+* **Local Synteny Scoring (`atlas_goc_score_pairwise`) [Custom Metric]**:
   * Custom metric calculated by this pipeline to evaluate synteny independently of Ensembl's linear 4-gene window.
   * Quantifies neighborhood conservation by computing the Jaccard similarity of orthogroup assignments within a $\pm 5$ gene flanking window along each chromosome.
-  * Windows are strictly bounded by chromosome ends to avoid inter-chromosomal bleeding.
-  * Being set-based rather than order-strict, this score remains informative in the presence of local micro-inversions, insertions, or tandem duplications where linear GOC metrics collapse.
 * **Directional Ortholog Ranking (`ortholog_rank`)**:
   * For one-to-many and many-to-many relationships, candidate orthologs are sorted directionally from the query species perspective to identify the primary ancestral or most conserved counterpart (Rank 1).
   * Sequential ranking criteria (integrating Ensembl Compara annotations with our custom synteny score):
@@ -29,9 +27,7 @@ The workflow is configurable for arbitrary species sets and Ensembl releases.
     4. **Reciprocal Sequence Identity** (`min(ens_identity, ens_homology_identity)`) — *[Ensembl Compara]*: Minimum reciprocal protein sequence identity.
     5. **Whole Genome Alignment Coverage** (`ens_wga_coverage`) — *[Ensembl Compara]*: Depth of whole-genome sequence alignment coverage.
 * **Unified Metadata Input**:
-  * Driven by a single user-provided CSV table (`paths.metadata`) specifying gene identifiers, canonical transcript annotations, and peptide mappings across all target species, avoiding multi-step external preprocessing.
-* **Deterministic Cluster Indexing**:
-  * Connected components are sorted by cluster size and lexicographical Ensembl IDs prior to prefix assignment, ensuring stable identifiers across independent runs.
+  * Driven by a single user-provided CSV table (`paths.metadata`) specifying gene identifiers, canonical transcript annotations, and peptide mappings across all target species.
 * **Automated Data Retrieval**:
   * Snakemake automatically retrieves required Ensembl Compara homology tables, protein FASTAs, and GFF3 gene coordinates from the Ensembl FTP server on first execution.
 
@@ -196,7 +192,7 @@ All outputs are saved to `ensembl_pipeline_output/`:
 2. **`pairwise_tables/{SP1}_{SP2}_pairwise_orthologs.tsv`**: Comprehensive pairwise matrices for all species pairs (e.g., 15 tables for 6 species). Each table contains:
    * Reciprocal sequence identities (`ens_identity`, `ens_homology_identity`) — *[Ensembl]*
    * Ensembl Gene Order Conservation (`ens_goc_score`) — *[Ensembl]*
-   * Local synteny Jaccard score (`atlas_goc_score_pairwise`) — *[Custom Pipeline Metric]*
+   * Local synteny Jaccard score (`atlas_goc_score_pairwise`) — *[Custom Metric]*
    * Whole genome alignment coverage (`ens_wga_coverage`) — *[Ensembl]*
    * Confidence flags (`ens_is_high_confidence`) — *[Ensembl]*
    * Directional ranks (`ortholog_rank_{SP1}`, `ortholog_rank_{SP2}`) — *[Custom Pipeline Metric]*
