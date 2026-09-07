@@ -7,12 +7,30 @@ ensembl_version: "115"
 # Inline Species Tree (Newick string matching species keys below)
 species_tree: "((((MACFA:1,HUMAN:1)1:1,(RATNO:1,MOUSE:1)1:1)1:1,(PIGXX:1,CANLF:1)1:1)1:1);"
 
+# =============================================================================
+# INPUT & DATA PATHS
+# =============================================================================
 paths:
+  # ---------------------------------------------------------------------------
+  # 1. USER-PROVIDED INPUT (THE ONLY REQUIRED INPUT FILE):
+  #    Example CSV with 227 genes across 6 species.
+  # ---------------------------------------------------------------------------
   metadata: "example/input/gene_metadata/target_gene_annotations_example.csv"
-  raw_homologies_dir: "input/DB/ensembl_homologies_raw"
-  genespace_coords: "input/DB/genespace_coords"
-  fasta_dir: "input/DB/canonical_transcripts"
 
+  # ---------------------------------------------------------------------------
+  # 2. AUTO-MANAGED DATABASE & INTERMEDIATE DIRECTORIES:
+  #    You do NOT need to prepare or download files for these directories.
+  #    Snakemake will automatically download raw Ensembl data and generate
+  #    these coordinates/transcripts during pipeline execution.
+  # ---------------------------------------------------------------------------
+  raw_homologies_dir: "input/DB/ensembl_homologies_raw"  # Auto-downloaded from Ensembl FTP
+  genespace_coords: "input/DB/genespace_coords"          # Auto-generated from Ensembl GFF3
+  fasta_dir: "input/DB/canonical_transcripts"            # Auto-generated canonical FASTAs
+
+# =============================================================================
+# TOOL EXECUTABLES
+# =============================================================================
+# Pre-installed in the conda environment (envs/orthology_env.yaml).
 tools:
   mafft: "mafft"
   fasttree: "FastTree"
