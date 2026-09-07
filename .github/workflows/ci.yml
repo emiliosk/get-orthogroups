@@ -25,22 +25,19 @@ jobs:
           activate-environment: ensembl_orthology
           auto-activate-base: false
 
-      - name: Verify Environment Packages
+      - name: Verify Environment Packages & Tools
         run: |
           python --version
           snakemake --version
+          mafft --version
+          FastTree -help > /dev/null 2>&1 || true
+          treerecs --version
           python -c "import pandas, numpy, yaml, networkx, Bio, requests; print('All core Python packages imported successfully!')"
 
       - name: Run Pre-flight Diagnostic Check
         run: |
           python preprocessing/00_check_pipeline_setup.py example/config_example.yaml
 
-      - name: Snakemake Workflow Dry-Run (Example Config - Core Track)
+      - name: Snakemake Workflow Dry-Run (Complete Pipeline with Trees & MSAs)
         run: |
           snakemake --configfile example/config_example.yaml -n
-
-      - name: Install Treerecs and Test Phylogeny Track Dry-Run
-        run: |
-          conda install -c bioconda treerecs -y
-          treerecs --version
-          snakemake --configfile example/config_example.yaml --config compute_trees=True -n

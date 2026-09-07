@@ -12,4 +12,5 @@ dependencies:
   - snakemake-minimal
   - mafft
   - fasttree
+  - treerecs
   - requests

@@ -77,25 +77,21 @@ cd get-orthogroups
 ```
 
 ### 2. Create the Conda Environment
-Create and activate the environment using the provided YAML file:
-```bash
-conda env create -f envs/orthology_env.yaml
-conda activate ensembl_orthology
-```
+All pipeline dependencies, including Python packages, Snakemake, and phylogenetic tools (**MAFFT**, **FastTree**, and **Treerecs**), are bundled directly into the environment specification:
 
-### 3. Optional Phylogeny Tools (Tree Computation)
-If you plan to run Rule 7 (`compute_trees: true` to generate reconciled gene trees and MSAs):
-* **FastTree** and **MAFFT** are installed automatically inside the conda environment.
-* **Treerecs** is required for gene/species tree reconciliation:
-  * **Linux / Intel Mac**: Install directly via Bioconda:
-    ```bash
-    conda install -c bioconda treerecs
-    ```
-  * **Apple Silicon (M1/M2/M3/M4)**: Bioconda provides `treerecs` built for `osx-64` (Intel). Run the automated installer to configure it via macOS Rosetta 2:
-    ```bash
-    bash scripts/install_treerecs.sh
-    ```
-    *(Alternatively, manually create an emulated environment: `CONDA_SUBDIR=osx-64 conda create -n treerecs_x86 -c bioconda treerecs -y && ln -sf $(conda info --base)/envs/treerecs_x86/bin/treerecs $CONDA_PREFIX/bin/`)*
+* **Linux / Intel Mac**:
+  ```bash
+  conda env create -f envs/orthology_env.yaml
+  conda activate ensembl_orthology
+  ```
+
+* **Apple Silicon (M1/M2/M3/M4 macOS)**:
+  Bioconda distributes `treerecs` for `osx-64` (Intel). Run our automated setup script to configure the environment via macOS Rosetta 2:
+  ```bash
+  bash scripts/create_environment.sh
+  conda activate ensembl_orthology
+  ```
+  *(Alternatively, create it manually via `CONDA_SUBDIR=osx-64 conda env create -f envs/orthology_env.yaml`)*
 
 ---
 
