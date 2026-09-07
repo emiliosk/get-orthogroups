@@ -22,8 +22,8 @@ output_dir: "example/output_example"
 
 symbol_reference_species: "HUMAN"
 
-# Compute phylogenetic trees and MSAs for multi-gene orthogroups
-compute_trees: true
+# Optional Phylogenetic Tree & MSA computation (Rule 7)
+compute_trees: false
 
 species:
   HUMAN:

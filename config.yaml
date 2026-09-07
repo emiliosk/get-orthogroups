@@ -26,7 +26,7 @@ tools:
   treerecs: "treerecs"
 
 # Number of parallel threads for synteny and tree computation
-threads: 4
+threads: 6
 
 # Output directory for the new pipeline results
 output_dir: "ensembl_pipeline_output"
@@ -62,7 +62,6 @@ synteny:
   goc_window: 5
 
 # Optional Phylogenetic Tree & MSA computation (Rule 7)
-# Set to false to produce only the Master table & Pairwise tables (Rules 1-6)
 compute_trees: false
 
 

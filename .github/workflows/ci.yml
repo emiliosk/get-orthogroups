@@ -35,6 +35,12 @@ jobs:
         run: |
           python preprocessing/00_check_pipeline_setup.py example/config_example.yaml
 
-      - name: Snakemake Workflow Dry-Run (Example Config)
+      - name: Snakemake Workflow Dry-Run (Example Config - Core Track)
         run: |
           snakemake --configfile example/config_example.yaml -n
+
+      - name: Install Treerecs and Test Phylogeny Track Dry-Run
+        run: |
+          conda install -c bioconda treerecs -y
+          treerecs --version
+          snakemake --configfile example/config_example.yaml --config compute_trees=True -n
