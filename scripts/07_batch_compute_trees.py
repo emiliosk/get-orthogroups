@@ -68,7 +68,7 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
             # Treerecs reconciliation
             rec_dir = os.path.join(group_tmp, "rec")
             os.makedirs(rec_dir, exist_ok=True)
-            cmd = [treerecs_bin, "-g", raw_tree, "-s", species_tree, "-o", rec_dir, "--force", "--align-nodes"]
+            cmd = [treerecs_bin, "-g", raw_tree, "-s", species_tree, "-o", rec_dir, "-c", "_", "-p", "Y", "-f", "-q"]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             
             res_tree = os.path.join(rec_dir, f"{group_id}_raw.nwk_recs.nwk")
@@ -77,7 +77,7 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
         
         if os.path.exists(group_tmp): shutil.rmtree(group_tmp)
         return True
-    except Exception:
+    except Exception as e:
         if os.path.exists(group_tmp): shutil.rmtree(group_tmp)
         return False
 
@@ -88,6 +88,7 @@ def main():
     out_tar = snakemake.output.tar
     
     mafft_bin = snakemake.config['tools'].get('mafft', 'mafft')
+    fasttree_bin = snakemake.config['tools'].get('fasttree', 'FastTree')
     treerecs_bin = snakemake.config['tools'].get('treerecs', 'treerecs')
     if not shutil.which(treerecs_bin) and os.environ.get("TREERECS_BIN"):
         treerecs_bin = os.environ["TREERECS_BIN"]

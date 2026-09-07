@@ -22,8 +22,8 @@ output_dir: "example/output_example"
 
 symbol_reference_species: "HUMAN"
 
-# Skip gene tree computation by default (focus on orthology tables)
-compute_trees: false
+# Compute phylogenetic trees and MSAs for multi-gene orthogroups
+compute_trees: true
 
 species:
   HUMAN:
