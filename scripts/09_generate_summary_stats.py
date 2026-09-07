@@ -50,6 +50,12 @@ def main():
         n_tables = len([f for f in os.listdir(pairwise_dir) if f.endswith('.tsv')])
         lines.append(f"\n--- Exported Pairwise Tables: {n_tables} ---")
 
+    # Phylogenetic Trees Check
+    tree_tar = os.path.join(out_dir, "Phylogenetic_Trees.tar.gz")
+    if os.path.exists(tree_tar):
+        size_mb = os.path.getsize(tree_tar) / (1024 * 1024)
+        lines.append(f"--- Phylogenetic Trees & MSAs: Generated ({size_mb:.2f} MB) ---")
+
     lines.append("\n" + "="*40)
     
     # Print to console

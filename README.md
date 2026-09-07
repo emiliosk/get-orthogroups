@@ -122,9 +122,24 @@ snakemake --cores 4 --latency-wait 60 --rerun-incomplete
 ### Step 4: Generate Summary Statistics
 Inspect key metrics, core orthogroup counts, and cardinality breakdowns:
 ```bash
+# For production pipeline results:
 python scripts/09_generate_summary_stats.py
+
+# Or for the example test run:
+python scripts/09_generate_summary_stats.py example/config_example.yaml
 ```
-This produces a Markdown summary at `ensembl_pipeline_output/Summary_Stats.md`.
+This produces a Markdown summary at `ensembl_pipeline_output/Summary_Stats.md` (or `example/output_example/Summary_Stats.md`).
+
+---
+
+## System Requirements & Benchmarks
+
+| Metric | Bundled Example (227 genes) | Full Genome Analysis (~130,000 genes, 6 species) |
+| :--- | :--- | :--- |
+| **Peak RAM** | < 1 GB | ~3.5 GB (8 GB+ recommended) |
+| **Core Pipeline (Rules 1–6)** | ~15–30 seconds | ~2–3 minutes (on 4 CPU cores) |
+| **Phylogeny (Rule 7: MSAs & Trees)** | ~5 seconds (13 trees) | ~30–45 minutes (~20,000 trees on 4 cores) |
+| **Disk Space** | ~50 MB | ~1.5 GB (raw Ensembl FTP cache + final tables) |
 
 ---
 
