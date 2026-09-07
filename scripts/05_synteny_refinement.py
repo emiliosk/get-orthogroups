@@ -242,7 +242,8 @@ def main():
         species_codes = list(species_config.keys())
         pairs = list(itertools.combinations(species_codes, 2))
         
-        max_workers = min(4, len(pairs))
+        threads = snakemake.threads if hasattr(snakemake, 'threads') else 4
+        max_workers = min(threads, len(pairs))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(process_species_pair, sp1, sp2, master, ensembl_scores, og_neighborhoods, hq_neighborhoods, output_pairwise_dir)

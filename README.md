@@ -59,7 +59,6 @@ get-orthogroups/
 │   ├── 05_synteny_refinement.py
 │   ├── 06_finalize_tables.py
 │   ├── 07_batch_compute_trees.py
-│   ├── 08_plot_trees.R
 │   └── 09_generate_summary_stats.py
 ├── README.md                     # Main repository overview (this document)
 ├── USAGE_GUIDE.md                # Guide for upgrading Ensembl or adding species

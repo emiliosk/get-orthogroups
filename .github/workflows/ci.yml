@@ -1,0 +1,40 @@
+name: CI Pipeline Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Setup & Dry-Run Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Conda Environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: envs/orthology_env.yaml
+          activate-environment: ensembl_orthology
+          auto-activate-base: false
+
+      - name: Verify Environment Packages
+        run: |
+          python --version
+          snakemake --version
+          python -c "import pandas, numpy, yaml, networkx, Bio, requests; print('All core Python packages imported successfully!')"
+
+      - name: Run Pre-flight Diagnostic Check
+        run: |
+          python preprocessing/00_check_pipeline_setup.py example/config_example.yaml
+
+      - name: Snakemake Workflow Dry-Run (Example Config)
+        run: |
+          snakemake --configfile example/config_example.yaml -n

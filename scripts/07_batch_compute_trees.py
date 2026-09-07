@@ -88,8 +88,13 @@ def main():
     out_tar = snakemake.output.tar
     
     mafft_bin = snakemake.config['tools'].get('mafft', 'mafft')
-    fasttree_bin = snakemake.config['tools'].get('fasttree', 'FastTree')
     treerecs_bin = snakemake.config['tools'].get('treerecs', 'treerecs')
+    if not shutil.which(treerecs_bin):
+        treerecs_bin = os.environ.get("TREERECS_BIN") or (
+            "/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs"
+            if os.path.exists("/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs")
+            else treerecs_bin
+        )
     output_dir = snakemake.config.get('output_dir', 'ensembl_pipeline_output')
     
     out_dir = os.path.join(output_dir, "Phylogenetic_Trees")
@@ -117,7 +122,7 @@ def main():
     total = len(eligible)
     print(f"Starting batch tree computation for {total} groups...")
     
-    max_workers = os.cpu_count() - 1
+    max_workers = snakemake.threads if hasattr(snakemake, 'threads') else max(1, (os.cpu_count() or 2) - 1)
     completed = 0
     errors = 0
     start_time = time.time()

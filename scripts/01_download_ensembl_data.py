@@ -1,5 +1,4 @@
 import os
-import subprocess
 import yaml
 import requests
 from pathlib import Path
@@ -30,20 +29,59 @@ def get_ensembl_assembly(scientific_name):
         print(f"  [Warning] Could not fetch assembly via REST API for {scientific_name}: {e}")
     return None
 
-def download_file(url, dest):
+import gzip
+import time
+
+def download_file(url, dest, max_retries=3):
     if os.path.exists(dest) and os.path.getsize(dest) > 0:
-        print(f"File already exists: {dest}")
-        return True
+        # Verify gzip integrity if it's a .gz file
+        if dest.endswith('.gz'):
+            try:
+                with gzip.open(dest, 'rb') as gz:
+                    gz.read(1024)
+                print(f"File already exists and is valid: {dest}")
+                return True
+            except Exception:
+                print(f"Existing file {dest} is corrupted. Re-downloading...")
+                try:
+                    os.remove(dest)
+                except Exception:
+                    pass
+        else:
+            print(f"File already exists: {dest}")
+            return True
     
+    tmp_dest = f"{dest}.part"
     print(f"Downloading {url} to {dest}...")
-    try:
-        subprocess.run(["wget", "-q", "-O", dest, url], check=True)
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to download {url}: {e}")
-        if os.path.exists(dest):
-            os.remove(dest)
-        raise RuntimeError(f"Failed to download {url}: {e}")
+    
+    headers = {"User-Agent": "Mozilla/5.0 (EnsemblOrthologyPipeline/1.0)"}
+    for attempt in range(1, max_retries + 1):
+        try:
+            with requests.get(url, stream=True, timeout=60, headers=headers) as r:
+                r.raise_for_status()
+                with open(tmp_dest, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+            
+            # Verify gzip integrity before accepting file
+            if dest.endswith('.gz'):
+                with gzip.open(tmp_dest, 'rb') as gz:
+                    gz.read(1024)
+            
+            # Atomic rename upon verified download
+            os.replace(tmp_dest, dest)
+            return True
+        except Exception as e:
+            print(f"  [Attempt {attempt}/{max_retries}] Failed downloading {url}: {e}")
+            if os.path.exists(tmp_dest):
+                try:
+                    os.remove(tmp_dest)
+                except Exception:
+                    pass
+            if attempt == max_retries:
+                raise RuntimeError(f"Failed to download {url} after {max_retries} attempts: {e}")
+            time.sleep(2 * attempt)
 
 def format_ensembl_folder(sci_name):
     """Formats species scientific name for Ensembl directory (e.g. homo_sapiens -> Homo_sapiens)."""

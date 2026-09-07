@@ -20,6 +20,9 @@ ensembl_pipeline_output/
 *.log
 slurm-*.out
 
+# Local Plotting & Development Scripts (Not part of package)
+local_plotting/
+
 # OS specific
 .DS_Store
 Thumbs.db

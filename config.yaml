@@ -23,7 +23,10 @@ paths:
 tools:
   mafft: "mafft"
   fasttree: "FastTree"
-  treerecs: "/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs"
+  treerecs: "treerecs"
+
+# Number of parallel threads for synteny and tree computation
+threads: 4
 
 # Output directory for the new pipeline results
 output_dir: "ensembl_pipeline_output"

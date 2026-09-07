@@ -68,6 +68,8 @@ rule synteny_refinement:
     output:
         refined_master = temp(f"{OUTPUT_DIR}/Consensus_Master_Refined.tsv"),
         pairwise_goc_dir = directory(f"{OUTPUT_DIR}/pairwise_tables")
+    threads:
+        config.get("threads", 4)
     params:
         coords_dir = config["paths"]["genespace_coords"],
         homology_dir = config["paths"]["raw_homologies_dir"]
@@ -87,5 +89,7 @@ rule compute_trees:
         master = f"{OUTPUT_DIR}/Consensus_Master.tsv"
     output:
         tar = f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz"
+    threads:
+        config.get("threads", 4)
     script:
         "scripts/07_batch_compute_trees.py"

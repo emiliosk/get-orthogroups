@@ -86,33 +86,6 @@ The pipeline is fully automated and handles the entire lifecycle:
 
 ---
 
-## 7. Visualization
-
-We provide an R script, `scripts/08_plot_trees.R`, to visualize the generated gene trees while highlighting the high-confidence assignments.
-
-### Features:
-- **Confidence Indicators:** Tip nodes are styled based on their status in the HQ track:
-    - **Solid Circle**: Gene is part of a multi-species High-Confidence group.
-    - **Open Circle**: Gene became a singleton in the HQ track (low confidence).
-- **Relabeling:** Automatically maps Ensembl Gene IDs to Gene Symbols for better readability in both Trees and MSAs.
-- **Rooting:** Trees are automatically rooted using a prioritized mammalian species hierarchy.
-
-### Usage Example:
-```r
-source("scripts/08_plot_trees.R")
-df <- load_master_for_plots()
-
-# Plot Tree
-p_tree <- plot_atlas_tree("OG_00001", df, "ensembl_pipeline_output/Phylogenetic_Trees/Gene_Trees/OG_00001.nwk")
-ggsave("OG_00001_tree.pdf", p_tree, width=10, height=6)
-
-# Plot MSA (first 100 amino acids)
-p_msa <- plot_atlas_msa("OG_00001", df, "ensembl_pipeline_output/Phylogenetic_Trees/MSAs/OG_00001.fa", start_pos=1, end_pos=100)
-ggsave("OG_00001_msa.pdf", p_msa, width=10, height=6)
-```
-
----
-
 ## Related Documentation
 
 * [README.md](README.md) - Pipeline overview and quick start.
