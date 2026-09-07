@@ -6,10 +6,14 @@ import yaml
 import requests
 import pandas as pd
 
+import platform
+
 def check_tools(config):
     print("--- 1. Checking Tools ---")
     compute_trees = config.get("compute_trees", False)
     all_ok = True
+    is_apple_silicon = (platform.system() == "Darwin" and platform.machine() == "arm64")
+
     for tool, path in config.get('tools', {}).items():
         if os.path.isabs(path):
             if os.path.exists(path) and os.access(path, os.X_OK):
@@ -17,8 +21,15 @@ def check_tools(config):
             else:
                 if not compute_trees and tool == "treerecs":
                     print(f"[INFO] {tool:10}: Not found at '{path}', but compute_trees is false (only needed for Rule 7).")
+                    if is_apple_silicon:
+                        print("       (Note for Apple Silicon: run 'bash scripts/install_treerecs.sh' to install via Rosetta)")
                 else:
                     print(f"[FAIL] {tool:10}: Not found or not executable at {path}")
+                    if tool == "treerecs":
+                        if is_apple_silicon:
+                            print("       Tip for Apple Silicon: Run 'bash scripts/install_treerecs.sh' to install via Rosetta.")
+                        else:
+                            print("       Tip: Install via 'conda install -c bioconda treerecs'")
                     all_ok = False
         else:
             env_var = f"{tool.upper()}_BIN"
@@ -28,8 +39,15 @@ def check_tools(config):
             else:
                 if not compute_trees and tool == "treerecs":
                     print(f"[INFO] {tool:10}: Not found in PATH, but compute_trees is false (only needed for Rule 7).")
+                    if is_apple_silicon:
+                        print("       (Note for Apple Silicon: run 'bash scripts/install_treerecs.sh' to install via Rosetta)")
                 else:
                     print(f"[FAIL] {tool:10}: Not found in PATH or ${env_var}. Check env or config.")
+                    if tool == "treerecs":
+                        if is_apple_silicon:
+                            print("       Tip for Apple Silicon: Run 'bash scripts/install_treerecs.sh' to install via Rosetta.")
+                        else:
+                            print("       Tip: Install via 'conda install -c bioconda treerecs'")
                     all_ok = False
     return all_ok
 

@@ -41,7 +41,7 @@ The pipeline organizes input files into **Required Configurations**, **Auto-Gene
   tools:
     mafft: "mafft"
     fasttree: "FastTree"
-    treerecs: "/path/to/treerecs"
+    treerecs: "treerecs"
   output_dir: "ensembl_pipeline_output"
   species:
     HUMAN:
