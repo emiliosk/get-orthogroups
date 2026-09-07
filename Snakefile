@@ -10,7 +10,8 @@ COMPUTE_TREES = config.get("compute_trees", False)
 
 ALL_TARGETS = [
     f"{OUTPUT_DIR}/Consensus_Master.tsv",
-    f"{OUTPUT_DIR}/pairwise_tables"
+    f"{OUTPUT_DIR}/pairwise_tables",
+    f"{OUTPUT_DIR}/Summary_Stats.md"
 ]
 if COMPUTE_TREES:
     ALL_TARGETS.append(f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz")
@@ -93,3 +94,14 @@ rule compute_trees:
         config.get("threads", 4)
     script:
         "scripts/07_batch_compute_trees.py"
+
+rule generate_summary_stats:
+    input:
+        master = f"{OUTPUT_DIR}/Consensus_Master.tsv",
+        pairwise = f"{OUTPUT_DIR}/pairwise_tables",
+        tree_tar = f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz" if COMPUTE_TREES else []
+    output:
+        stats = f"{OUTPUT_DIR}/Summary_Stats.md"
+    script:
+        "scripts/09_generate_summary_stats.py"
+

@@ -103,7 +103,7 @@ python preprocessing/00_check_pipeline_setup.py
 This script checks tool execution permissions, Ensembl REST API connectivity, and metadata integrity.
 
 ### Results Summary
-After a run completes, generate a biological summary report:
+The pipeline automatically runs `generate_summary_stats` and saves `Summary_Stats.md` at the conclusion of every execution. To re-display or inspect the summary statistics anytime:
 ```bash
 python scripts/09_generate_summary_stats.py
 ```

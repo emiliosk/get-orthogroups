@@ -7,16 +7,24 @@ def main():
     lines = []
     lines.append("=== Orthology Pipeline Summary Statistics ===\n")
     
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
-    if not os.path.exists(config_path):
-        print(f"Error: Config file '{config_path}' not found.")
-        sys.exit(1)
+    if 'snakemake' in globals():
+        master_path = snakemake.input.master
+        out_file = snakemake.output.stats
+        out_dir = os.path.dirname(out_file)
+        tree_tar = snakemake.input.tree_tar if hasattr(snakemake.input, 'tree_tar') and snakemake.input.tree_tar else os.path.join(out_dir, "Phylogenetic_Trees.tar.gz")
+    else:
+        config_path = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+        if not os.path.exists(config_path):
+            print(f"Error: Config file '{config_path}' not found.")
+            sys.exit(1)
+            
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
         
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
-    
-    out_dir = config.get('output_dir', 'ensembl_pipeline_output')
-    master_path = os.path.join(out_dir, "Consensus_Master.tsv")
+        out_dir = config.get('output_dir', 'ensembl_pipeline_output')
+        master_path = os.path.join(out_dir, "Consensus_Master.tsv")
+        out_file = os.path.join(out_dir, "Summary_Stats.md")
+        tree_tar = os.path.join(out_dir, "Phylogenetic_Trees.tar.gz")
     
     if not os.path.exists(master_path):
         print(f"Error: Master table not found at {master_path}")
@@ -24,25 +32,25 @@ def main():
         
     df = pd.read_csv(master_path, sep='\t')
     
-    lines.append(f"Total Genes: {len(df)}")
+    lines.append(f"Total Genes: {len(df):,}")
     lines.append(f"Total Species: {df['species_code'].nunique()} ({', '.join(df['species_code'].unique())})")
     
     lines.append("\n--- Orthogroup Stats (Standard Track) ---")
     og_stats = df.drop_duplicates('ens_orthogroup_id')['ens_orthogroup_status'].value_counts()
-    lines.append(f"Total Orthogroups: {df['ens_orthogroup_id'].nunique()}")
+    lines.append(f"Total Orthogroups: {df['ens_orthogroup_id'].nunique():,}")
     for status, count in og_stats.items():
-        lines.append(f"  {status:12}: {count}")
+        lines.append(f"  {status:12}: {count:,}")
         
     lines.append("\n--- Orthogroup Stats (High-Confidence Track) ---")
     hq_stats = df.drop_duplicates('ens_hqorthogroup_id')['ens_hqorthogroup_status'].value_counts()
-    lines.append(f"Total HQ Groups: {df['ens_hqorthogroup_id'].nunique()}")
+    lines.append(f"Total HQ Groups: {df['ens_hqorthogroup_id'].nunique():,}")
     for status, count in hq_stats.items():
-        lines.append(f"  {status:12}: {count}")
+        lines.append(f"  {status:12}: {count:,}")
 
     lines.append("\n--- Species Coverage (in Standard OGs) ---")
     coverage = df.groupby('ens_orthogroup_id')['species_code'].nunique().value_counts().sort_index(ascending=False)
     for n_sp, count in coverage.items():
-        lines.append(f"  Groups with {n_sp} species: {count}")
+        lines.append(f"  Groups with {n_sp} species: {count:,}")
 
     # Pairwise Ranking Check
     pairwise_dir = os.path.join(out_dir, "pairwise_tables")
@@ -51,8 +59,7 @@ def main():
         lines.append(f"\n--- Exported Pairwise Tables: {n_tables} ---")
 
     # Phylogenetic Trees Check
-    tree_tar = os.path.join(out_dir, "Phylogenetic_Trees.tar.gz")
-    if os.path.exists(tree_tar):
+    if tree_tar and os.path.exists(tree_tar):
         size_mb = os.path.getsize(tree_tar) / (1024 * 1024)
         lines.append(f"--- Phylogenetic Trees & MSAs: Generated ({size_mb:.2f} MB) ---")
 
@@ -63,11 +70,10 @@ def main():
     print(output_text)
     
     # Save to file
-    out_file = os.path.join(out_dir, "Summary_Stats.md")
     os.makedirs(out_dir, exist_ok=True)
     with open(out_file, 'w') as f:
         f.write("# Orthology Pipeline Summary Statistics\n\n```text\n" + output_text + "\n```\n")
     print(f"Summary stats saved to {out_file}")
 
-if __name__ == "__main__":
+if __name__ == "__main__" or 'snakemake' in globals():
     main()

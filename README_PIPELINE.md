@@ -42,11 +42,11 @@ For full schemas and column requirements, see [USAGE_GUIDE.md](USAGE_GUIDE.md).
 # 1. Run Pre-flight Diagnostic Check
 python preprocessing/00_check_pipeline_setup.py
 
-# 2. Run Pipeline via Snakemake
+# 2. Run Pipeline via Snakemake (automatically computes orthogroups, trees, and summary stats)
 snakemake --cores 4
 # (If resuming an interrupted run, add --rerun-incomplete)
 
-# 3. View Results Summary
+# 3. Re-display Summary Statistics anytime (optional)
 python scripts/09_generate_summary_stats.py
 ```
 
@@ -54,7 +54,8 @@ python scripts/09_generate_summary_stats.py
 
 *   `ensembl_pipeline_output/Consensus_Master.tsv`: The main cluster table.
 *   `ensembl_pipeline_output/pairwise_tables/`: Detailed tables for every species pair, containing all 7 metrics and the new `ortholog_rank`.
-*   `ensembl_pipeline_output/Phylogenetic_Trees.tar.gz`: Reconciled gene trees and MSAs for every orthogroup.
+*   `ensembl_pipeline_output/Summary_Stats.md`: Formatted summary metrics, species coverage, and cardinality counts.
+*   `ensembl_pipeline_output/Phylogenetic_Trees.tar.gz`: Reconciled gene trees and MSAs for every orthogroup (if `compute_trees: true`).
 
 For detailed instructions on adding species or upgrading versions, see [USAGE_GUIDE.md](USAGE_GUIDE.md).
 

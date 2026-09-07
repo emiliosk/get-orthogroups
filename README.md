@@ -108,12 +108,14 @@ A small 6-species test dataset (227 genes) is included in `example/`:
 ```bash
 snakemake --configfile example/config_example.yaml --cores 4
 ```
+Upon completion, the pipeline automatically prints summary statistics to the terminal and writes `example/output_example/Summary_Stats.md`.
 
 ### Step 3: Run the Production Pipeline
 To run the full pipeline on your target gene annotations:
 ```bash
 snakemake --cores 4
 ```
+Snakemake will execute all stages—from downloading raw homologies to synteny scoring, tree reconciliation (if enabled), and automatically outputting `ensembl_pipeline_output/Summary_Stats.md`.
 
 > [!TIP]
 > **Resuming Interrupted Runs:** If an execution is ever interrupted midway (e.g., via `Ctrl+C` or a compute cluster timeout), add `--rerun-incomplete` to have Snakemake cleanly re-run the unfinished steps:
@@ -123,8 +125,8 @@ snakemake --cores 4
 > *(Optional: On shared/NFS cluster storage with filesystem latency, you can also append `--latency-wait 60`)*.
 
 
-### Step 4: Generate Summary Statistics
-Inspect key metrics, core orthogroup counts, and cardinality breakdowns:
+### Step 4: Re-inspect Summary Statistics (Optional)
+The pipeline automatically compiles and displays summary metrics at the end of the run. To re-inspect or display them anytime from the terminal:
 ```bash
 # For production pipeline results:
 python scripts/09_generate_summary_stats.py
@@ -132,7 +134,7 @@ python scripts/09_generate_summary_stats.py
 # Or for the example test run:
 python scripts/09_generate_summary_stats.py example/config_example.yaml
 ```
-This produces a Markdown summary at `ensembl_pipeline_output/Summary_Stats.md` (or `example/output_example/Summary_Stats.md`).
+This inspects `ensembl_pipeline_output/Summary_Stats.md` (or `example/output_example/Summary_Stats.md`).
 
 ---
 
