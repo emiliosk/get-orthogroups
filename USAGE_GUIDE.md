@@ -105,7 +105,7 @@ This script checks tool execution permissions, Ensembl REST API connectivity, an
 ### Results Summary
 The pipeline automatically runs `generate_summary_stats` and saves `Summary_Stats.md` at the conclusion of every execution. To re-display or inspect the summary statistics anytime:
 ```bash
-python scripts/09_generate_summary_stats.py
+python scripts/08_generate_summary_stats.py
 ```
 This provides orthogroup counts by cardinality (1to1, multi-copy) and species coverage statistics.
 

@@ -103,5 +103,5 @@ rule generate_summary_stats:
     output:
         stats = f"{OUTPUT_DIR}/Summary_Stats.md"
     script:
-        "scripts/09_generate_summary_stats.py"
+        "scripts/08_generate_summary_stats.py"
 

@@ -59,7 +59,7 @@ get-orthogroups/
 │   ├── 05_synteny_refinement.py
 │   ├── 06_finalize_tables.py
 │   ├── 07_batch_compute_trees.py
-│   └── 09_generate_summary_stats.py
+│   └── 08_generate_summary_stats.py
 ├── README.md                     # Main repository overview (this document)
 ├── USAGE_GUIDE.md                # Guide for upgrading Ensembl or adding species
 ├── METHODS_PIPELINE.md           # Methodological and theoretical documentation
@@ -129,10 +129,10 @@ Snakemake will execute all stages—from downloading raw homologies to synteny s
 The pipeline automatically compiles and displays summary metrics at the end of the run. To re-inspect or display them anytime from the terminal:
 ```bash
 # For production pipeline results:
-python scripts/09_generate_summary_stats.py
+python scripts/08_generate_summary_stats.py
 
 # Or for the example test run:
-python scripts/09_generate_summary_stats.py example/config_example.yaml
+python scripts/08_generate_summary_stats.py example/config_example.yaml
 ```
 This inspects `ensembl_pipeline_output/Summary_Stats.md` (or `example/output_example/Summary_Stats.md`).
 

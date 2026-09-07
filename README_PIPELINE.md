@@ -47,7 +47,7 @@ snakemake --cores 4
 # (If resuming an interrupted run, add --rerun-incomplete)
 
 # 3. Re-display Summary Statistics anytime (optional)
-python scripts/09_generate_summary_stats.py
+python scripts/08_generate_summary_stats.py
 ```
 
 ## Output Structure
