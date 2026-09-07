@@ -5,6 +5,7 @@ import itertools
 import gzip
 import traceback
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 def load_data(master_path):
     print("Loading consensus master...")
@@ -14,11 +15,13 @@ def load_data(master_path):
 def load_coords(master, coords_dir, metadata_path):
     print("Loading protein-to-gene mapping...")
     meta = pd.read_csv(metadata_path)
+    gene_col = 'ensembl_id' if 'ensembl_id' in meta.columns else 'ensembl_gene_id'
+    meta['ensembl_id'] = meta[gene_col].astype(str).str.strip()
     p2g = {}
     if 'peptide_id' in meta.columns:
-        p2g.update(meta.dropna(subset=['peptide_id']).set_index('peptide_id')['ensembl_id'].to_dict())
+        p2g.update(meta.dropna(subset=['peptide_id']).drop_duplicates('peptide_id').set_index('peptide_id')['ensembl_id'].to_dict())
     if 'peptide_id_version' in meta.columns:
-        p2g.update(meta.dropna(subset=['peptide_id_version']).set_index('peptide_id_version')['ensembl_id'].to_dict())
+        p2g.update(meta.dropna(subset=['peptide_id_version']).drop_duplicates('peptide_id_version').set_index('peptide_id_version')['ensembl_id'].to_dict())
     
     gene_to_og = master.set_index('ensembl_id')['ens_orthogroup_id'].to_dict()
     gene_to_hq_og = master.set_index('ensembl_id')['ens_hqorthogroup_id'].to_dict()
@@ -37,31 +40,44 @@ def load_coords(master, coords_dir, metadata_path):
             coords['hq_og'] = coords['g_id'].map(gene_to_hq_og)
             
             coords = coords.dropna(subset=['g_id'])
+            # Sort by chromosome, then physical start coordinate
             coords = coords.sort_values(['chr', 'start']).reset_index(drop=True)
             species_coords[sp_code] = coords
             
     return species_coords
 
-def get_neighborhoods(coords_df, og_col, window_size=5):
+def get_neighborhoods_chromosome_aware(coords_df, og_col, window_size=5):
+    """
+    Constructs syntenic neighborhoods strictly within chromosome boundaries.
+    Uses native Python lists for orders-of-magnitude faster execution.
+    """
     neighborhoods = {}
-    valid_coords = coords_df.dropna(subset=[og_col])
-    
-    for i, row in coords_df.iterrows():
-        gene = row['g_id']
-        start_idx = max(0, i - window_size)
-        end_idx = min(len(coords_df), i + window_size + 1)
-        neighbors = coords_df.iloc[start_idx:end_idx][og_col].dropna().tolist()
-        neighborhoods[gene] = set(neighbors)
+    # Group by chromosome so sliding window NEVER bleeds into adjacent chromosomes
+    for chr_name, group in coords_df.groupby('chr', sort=False):
+        genes = group['g_id'].tolist()
+        ogs = group[og_col].tolist()
+        n_genes = len(genes)
+        
+        for i in range(n_genes):
+            start_idx = max(0, i - window_size)
+            end_idx = min(n_genes, i + window_size + 1)
+            # Collect non-null, assigned orthogroups in the window
+            win_ogs = [og for og in ogs[start_idx:end_idx] if pd.notna(og) and og != 'unassigned']
+            neighborhoods[genes[i]] = set(win_ogs)
+            
     return neighborhoods
 
-def calculate_pairwise_goc(g1, g2, neighborhoods1, neighborhoods2):
-    if g1 not in neighborhoods1 or g2 not in neighborhoods2:
-        return 0
-    n1 = neighborhoods1[g1]
-    n2 = neighborhoods2[g2]
-    intersection = len(n1.intersection(n2))
-    union = len(n1.union(n2))
-    return intersection / union if union > 0 else 0
+def calculate_pairwise_goc(n1, n2):
+    """
+    Computes Jaccard index |n1 ∩ n2| / |n1 ∪ n2| without allocating union set.
+    """
+    if not n1 or not n2:
+        return 0.0
+    inter_len = len(n1.intersection(n2))
+    if inter_len == 0:
+        return 0.0
+    union_len = len(n1) + len(n2) - inter_len
+    return inter_len / union_len
 
 def load_ensembl_scores(homology_dir, species_config):
     print("Loading Ensembl homology scores...")
@@ -89,6 +105,84 @@ def load_ensembl_scores(homology_dir, species_config):
                     row_scores = {c: parts[i] for c, i in col_indices.items()}
                     scores_dict[(ref_id, target_id)] = row_scores
     return scores_dict
+
+def process_species_pair(sp1, sp2, master, ensembl_scores, og_neighborhoods, hq_neighborhoods, output_pairwise_dir):
+    df1 = master[master['species_code'] == sp1]
+    df2 = master[master['species_code'] == sp2]
+    
+    merged = pd.merge(df1, df2, on='ens_orthogroup_id', suffixes=('_'+sp1, '_'+sp2))
+    if merged.empty:
+        return sp1, sp2, 0
+
+    g1_list = merged[f'ensembl_id_{sp1}'].tolist()
+    g2_list = merged[f'ensembl_id_{sp2}'].tolist()
+    
+    # 1. Fast Ensembl score lookup (replaces slow apply(axis=1))
+    identities = []
+    homology_identities = []
+    goc_scores = []
+    wga_coverages = []
+    is_high_confidences = []
+    
+    for g1, g2 in zip(g1_list, g2_list):
+        s = ensembl_scores.get((g1, g2)) or ensembl_scores.get((g2, g1))
+        if s:
+            identities.append(s.get('identity'))
+            homology_identities.append(s.get('homology_identity'))
+            goc_scores.append(s.get('goc_score'))
+            wga_coverages.append(s.get('wga_coverage'))
+            is_high_confidences.append(s.get('is_high_confidence'))
+        else:
+            identities.append(None)
+            homology_identities.append(None)
+            goc_scores.append(None)
+            wga_coverages.append(None)
+            is_high_confidences.append(None)
+            
+    merged['ens_identity'] = identities
+    merged['ens_homology_identity'] = homology_identities
+    merged['ens_goc_score'] = goc_scores
+    merged['ens_wga_coverage'] = wga_coverages
+    merged['ens_is_high_confidence'] = is_high_confidences
+    
+    # 2. Fast Pairwise Atlas GOC scores (zero set allocation, chromosome-aware)
+    sp1_og_neigh = og_neighborhoods.get(sp1, {})
+    sp2_og_neigh = og_neighborhoods.get(sp2, {})
+    sp1_hq_neigh = hq_neighborhoods.get(sp1, {})
+    sp2_hq_neigh = hq_neighborhoods.get(sp2, {})
+    
+    merged['atlas_goc_score_pairwise'] = [
+        calculate_pairwise_goc(sp1_og_neigh.get(g1), sp2_og_neigh.get(g2))
+        for g1, g2 in zip(g1_list, g2_list)
+    ]
+    merged['atlas_hq_goc_score_pairwise'] = [
+        calculate_pairwise_goc(sp1_hq_neigh.get(g1), sp2_hq_neigh.get(g2))
+        for g1, g2 in zip(g1_list, g2_list)
+    ]
+
+    # 3. Ortholog Ranking
+    rank_metrics = ['ens_is_high_confidence', 'ens_goc_score', 'atlas_goc_score_pairwise', 'ens_identity', 'ens_homology_identity', 'ens_wga_coverage']
+    for c in rank_metrics:
+        merged[c] = pd.to_numeric(merged[c], errors='coerce').fillna(0)
+
+    # Combined identity metric for sorting
+    merged['_min_ident'] = merged[['ens_identity', 'ens_homology_identity']].min(axis=1)
+
+    sort_cols = ['ens_is_high_confidence', 'ens_goc_score', 'atlas_goc_score_pairwise', '_min_ident', 'ens_wga_coverage']
+
+    # Rank from sp1 perspective (ranking its sp2 orthologs)
+    merged = merged.sort_values([f'ensembl_id_{sp1}'] + sort_cols, ascending=[True] + [False]*len(sort_cols))
+    merged[f'ortholog_rank_{sp1}'] = merged.groupby(f'ensembl_id_{sp1}').cumcount() + 1
+
+    # Rank from sp2 perspective (ranking its sp1 orthologs)
+    merged = merged.sort_values([f'ensembl_id_{sp2}'] + sort_cols, ascending=[True] + [False]*len(sort_cols))
+    merged[f'ortholog_rank_{sp2}'] = merged.groupby(f'ensembl_id_{sp2}').cumcount() + 1
+
+    merged = merged.drop(columns=['_min_ident'])
+    
+    out_path = os.path.join(output_pairwise_dir, f"{sp1}_{sp2}_pairwise_orthologs.tsv")
+    merged.to_csv(out_path, sep='\t', index=False)
+    return sp1, sp2, len(merged)
 
 def main():
     try:
@@ -134,68 +228,31 @@ def main():
         # Pass the master through unchanged structurally
         master.to_csv(output_master, sep='\t', index=False)
         
-        # Load Coords and build neighborhoods for informational GOC
+        # Load Coords and build chromosome-aware neighborhoods for informational GOC
         species_coords = load_coords(master, coords_dir, metadata_path)
-        og_neighborhoods = {sp: get_neighborhoods(df, 'og', window_size) for sp, df in species_coords.items()}
-        hq_neighborhoods = {sp: get_neighborhoods(df, 'hq_og', window_size) for sp, df in species_coords.items()}
+        print("Constructing chromosome-aware syntenic neighborhoods...")
+        og_neighborhoods = {sp: get_neighborhoods_chromosome_aware(df, 'og', window_size) for sp, df in species_coords.items()}
+        hq_neighborhoods = {sp: get_neighborhoods_chromosome_aware(df, 'hq_og', window_size) for sp, df in species_coords.items()}
         
         # Load Ensembl scores for pairwise tables
         ensembl_scores = load_ensembl_scores(homology_dir, species_config)
 
-        # Generate Refined Pairwise Tables
-        print("Generating pairwise tables with Ensembl and Atlas scores...")
+        # Generate Refined Pairwise Tables (Multi-threaded across pairs)
+        print("Generating pairwise tables with Ensembl and Atlas scores (vectorized & parallel)...")
         species_codes = list(species_config.keys())
-        for sp1, sp2 in itertools.combinations(species_codes, 2):
-            df1 = master[master['species_code'] == sp1]
-            df2 = master[master['species_code'] == sp2]
-            
-            merged = pd.merge(df1, df2, on='ens_orthogroup_id', suffixes=('_'+sp1, '_'+sp2))
-            if merged.empty: continue
-
-            # Append Ensembl metrics
-            def get_ens_scores(row):
-                g1 = row[f'ensembl_id_{sp1}']
-                g2 = row[f'ensembl_id_{sp2}']
-                s = ensembl_scores.get((g1, g2)) or ensembl_scores.get((g2, g1))
-                if s:
-                    return pd.Series([s.get('identity'), s.get('homology_identity'), s.get('goc_score'), s.get('wga_coverage'), s.get('is_high_confidence')])
-                return pd.Series([None, None, None, None, None])
-
-            ens_score_cols = ['ens_identity', 'ens_homology_identity', 'ens_goc_score', 'ens_wga_coverage', 'ens_is_high_confidence']
-            merged[ens_score_cols] = merged.apply(get_ens_scores, axis=1)
-            
-            # Append specific Pairwise Atlas GOC scores
-            merged['atlas_goc_score_pairwise'] = merged.apply(
-                lambda row: calculate_pairwise_goc(row[f'ensembl_id_{sp1}'], row[f'ensembl_id_{sp2}'], og_neighborhoods[sp1], og_neighborhoods[sp2]), axis=1
-            )
-            merged['atlas_hq_goc_score_pairwise'] = merged.apply(
-                lambda row: calculate_pairwise_goc(row[f'ensembl_id_{sp1}'], row[f'ensembl_id_{sp2}'], hq_neighborhoods[sp1], hq_neighborhoods[sp2]), axis=1
-            )
-
-            # --- ADD ORTHOLOG RANKING ---
-            # Ensure numeric for ranking
-            rank_metrics = ['ens_is_high_confidence', 'ens_goc_score', 'atlas_goc_score_pairwise', 'ens_identity', 'ens_homology_identity', 'ens_wga_coverage']
-            for c in rank_metrics:
-                merged[c] = pd.to_numeric(merged[c], errors='coerce').fillna(0)
-
-            # Combined identity metric for sorting
-            merged['_min_ident'] = merged[['ens_identity', 'ens_homology_identity']].min(axis=1)
-
-            sort_cols = ['ens_is_high_confidence', 'ens_goc_score', 'atlas_goc_score_pairwise', '_min_ident', 'ens_wga_coverage']
-
-            # Rank from sp1 perspective (ranking its sp2 orthologs)
-            merged = merged.sort_values([f'ensembl_id_{sp1}'] + sort_cols, ascending=[True] + [False]*len(sort_cols))
-            merged[f'ortholog_rank_{sp1}'] = merged.groupby(f'ensembl_id_{sp1}').cumcount() + 1
-
-            # Rank from sp2 perspective (ranking its sp1 orthologs)
-            merged = merged.sort_values([f'ensembl_id_{sp2}'] + sort_cols, ascending=[True] + [False]*len(sort_cols))
-            merged[f'ortholog_rank_{sp2}'] = merged.groupby(f'ensembl_id_{sp2}').cumcount() + 1
-
-            merged = merged.drop(columns=['_min_ident'])
-            # ----------------------------
-            
-            out_path = os.path.join(output_pairwise_dir, f"{sp1}_{sp2}_pairwise_orthologs.tsv")
-            merged.to_csv(out_path, sep='\t', index=False)
+        pairs = list(itertools.combinations(species_codes, 2))
+        
+        max_workers = min(4, len(pairs))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(process_species_pair, sp1, sp2, master, ensembl_scores, og_neighborhoods, hq_neighborhoods, output_pairwise_dir)
+                for sp1, sp2 in pairs
+            ]
+            for future in futures:
+                sp1, sp2, count = future.result()
+                print(f"  [Pairwise] {sp1}_{sp2}: {count} ortholog pairs processed.")
+                
+        print("Synteny refinement complete.")
             
     except Exception as e:
         print(f"Error in main: {e}")

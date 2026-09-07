@@ -12,40 +12,34 @@ library(stringr)
 library(msaR)
 library(htmlwidgets)
 
-# --- Path Configuration ---
-# Update these if running from a different directory
-MASTER_PATH <- "ensembl_pipeline_output/Consensus_Master.tsv"
-ARCHIVE_PATH <- "ensembl_pipeline_output/Phylogenetic_Trees.tar.gz"
-SPECIES_TREE_PATH <- "input/DB/species_tree.nwk"
+# --- Configuration ---
+config_path <- if (file.exists("config.yaml")) "config.yaml" else "../config.yaml"
+if (file.exists(config_path)) {
+  cfg <- yaml::read_yaml(config_path)
+  MASTER_PATH <- file.path(cfg$output_dir %||% "ensembl_pipeline_output", "Consensus_Master.tsv")
+  ARCHIVE_PATH <- file.path(cfg$output_dir %||% "ensembl_pipeline_output", "Phylogenetic_Trees.tar.gz")
+  SPECIES_TREE_VAL <- cfg$species_tree %||% cfg$paths$species_tree %||% "input/DB/species_tree.nwk"
+} else {
+  MASTER_PATH <- "ensembl_pipeline_output/Consensus_Master.tsv"
+  ARCHIVE_PATH <- "ensembl_pipeline_output/Phylogenetic_Trees.tar.gz"
+  SPECIES_TREE_VAL <- "input/DB/species_tree.nwk"
+}
 
 # Default directories within archive
 TREE_DIR_INT <- "Phylogenetic_Trees/Gene_Trees"
 MSA_DIR_INT <- "Phylogenetic_Trees/MSAs"
 
 #' Extract a specific file from the tar.gz archive to a temporary location
-#' @param archive Path to the .tar.gz archive
-#' @param internal_path Path within the archive (e.g., "Phylogenetic_Trees/MSAs/OG_00001.fa")
 extract_from_archive <- function(archive = ARCHIVE_PATH, internal_path) {
   if (!file.exists(archive)) {
     stop("Archive not found: ", archive)
   }
-  
-  # Ensure internal path uses forward slashes
   internal_path <- gsub("\\\\", "/", internal_path)
-  
   temp_ex_dir <- tempdir()
-  
-  # Extract the specific file
-  # We use the built-in untar. 
   untar(archive, files = internal_path, exdir = temp_ex_dir)
-  
   actual_extracted_path <- file.path(temp_ex_dir, internal_path)
-  
-  if (file.exists(actual_extracted_path)) {
-    return(actual_extracted_path)
-  } else {
-    return(NULL)
-  }
+  if (file.exists(actual_extracted_path)) return(actual_extracted_path)
+  return(NULL)
 }
 
 #' Load and prepare the Master Table for plotting
@@ -55,14 +49,29 @@ load_master_for_plots <- function(path = MASTER_PATH) {
   return(df)
 }
 
-#' Root a gene tree using the standard species hierarchy
-root_atlas_tree <- function(tree) {
+#' Root a gene tree dynamically using species tree or tip labels
+root_atlas_tree <- function(tree, species_tree_val = SPECIES_TREE_VAL) {
   species_in_tree <- sub("_.*", "", tree$tip.label)
-  # Rooting hierarchy priority
-  hierarchy <- c("PIGXX", "RATNO", "MOUSE", "MACFA", "HUMAN")
+  
+  # Determine rooting hierarchy priority from species tree if available
+  hierarchy <- NULL
+  if (!is.null(species_tree_val)) {
+    try({
+      if (startsWith(trimws(species_tree_val), "(")) {
+        sp_tr <- read.tree(text = species_tree_val)
+      } else if (file.exists(species_tree_val)) {
+        sp_tr <- read.tree(file = species_tree_val)
+      }
+      hierarchy <- sp_tr$tip.label
+    }, silent = TRUE)
+  }
+  
+  if (is.null(hierarchy)) {
+    hierarchy <- unique(species_in_tree)
+  }
+  
   for (sp in hierarchy) {
     if (sp %in% species_in_tree) {
-      # Handle case where the chosen outgroup might lead to invalid tree
       try({
         tree <- root(tree, outgroup = tree$tip.label[which(species_in_tree == sp)[1]], resolve.root = TRUE)
         break
@@ -73,11 +82,7 @@ root_atlas_tree <- function(tree) {
 }
 
 #' Plot an Atlas Gene Tree with HQ confidence indicators
-#' @param og_id The simplified OG ID (e.g., "OG_00001")
-#' @param master_df The loaded master consensus table
-#' @param tree_path Path to the .nwk file (If NULL, extracts from ARCHIVE_PATH)
 plot_atlas_tree <- function(og_id, master_df, tree_path = NULL) {
-  
   actual_path <- tree_path
   is_temp <- FALSE
   
@@ -92,26 +97,20 @@ plot_atlas_tree <- function(og_id, master_df, tree_path = NULL) {
     return(NULL)
   }
   
-  # Treerecs files often have a header line starting with '>'
-  # We strip this to make it compatible with ape::read.tree
   lines <- readLines(actual_path, warn = FALSE)
   clean_lines <- lines[!startsWith(lines, ">")]
   
   tree <- read.tree(text = paste(clean_lines, collapse = ""))
-  
-  # Clean up temp file immediately after reading into memory
   if (is_temp) unlink(actual_path)
-  
   if (is.null(tree)) return(NULL)
   
   tree <- root_atlas_tree(tree)
   
-  # Extract Gene IDs from tips (Format: SPECIES_ENSID)
+  # Extract Gene IDs from tips
   tip_metadata <- tibble(label = tree$tip.label) %>%
-    mutate(ensembl_id = sub("^[A-Z]+_", "", label)) %>%
+    mutate(ensembl_id = sub("^[^_]+_", "", label)) %>%
     left_join(master_df, by = "ensembl_id")
   
-  # Define Confidence
   tip_metadata <- tip_metadata %>%
     mutate(
       confidence = case_when(
@@ -122,7 +121,9 @@ plot_atlas_tree <- function(og_id, master_df, tree_path = NULL) {
       display_label = paste0(species_code, "_", clean_symbol)
     )
   
-  sp_cols <- c("HUMAN"="#E41A1C", "MACFA"="#377EB8", "MOUSE"="#4DAF4A", "RATNO"="#984EA3", "PIGXX"="#FF7F00")
+  # Generate colors dynamically for species present
+  unique_sp <- unique(tip_metadata$species_code[!is.na(tip_metadata$species_code)])
+  sp_cols <- setNames(rainbow(length(unique_sp)), unique_sp)
   
   p <- ggtree(tree) %<+% tip_metadata +
     geom_tippoint(aes(color = species_code, shape = confidence), size = 3) +
@@ -166,7 +167,7 @@ plot_atlas_msa <- function(og_id, master_df, msa_path = NULL, start_pos = 1, end
   
   # Relabel sequences: Species_Symbol
   raw_names <- names(aln)
-  extracted_ids <- sub("^[A-Z]+_", "", raw_names)
+  extracted_ids <- sub("^[^_]+_", "", raw_names)
   
   # Join with metadata for symbols
   labels_df <- tibble(ensembl_id = extracted_ids, raw_name = raw_names) %>%
@@ -212,7 +213,7 @@ export_atlas_msa_html <- function(og_id, master_df, msa_path = NULL, output_path
   
   # Relabel sequences: Species_Symbol
   raw_names <- names(aln)
-  extracted_ids <- sub("^[A-Z]+_", "", raw_names)
+  extracted_ids <- sub("^[^_]+_", "", raw_names)
   
   labels_df <- tibble(ensembl_id = extracted_ids, raw_name = raw_names) %>%
     left_join(master_df %>% select(ensembl_id, gene_symbol, species_code), by = "ensembl_id") %>%

@@ -33,3 +33,11 @@ The first gene in this sorted list becomes **Rank 1**.
 ### Example: Mouse Insulin
 *   **Human INS** → **Mouse Ins2**: Rank 1 (High Conf, 100 GOC)
 *   **Human INS** → **Mouse Ins1**: Rank 2 (Low Conf, 0 GOC)
+
+---
+
+## Related Documentation
+
+* [README.md](README.md) - Pipeline overview and quick start.
+* [USAGE_GUIDE.md](USAGE_GUIDE.md) - Adding species, upgrading Ensembl releases, and troubleshooting.
+* [METHODS_PIPELINE.md](METHODS_PIPELINE.md) - Dual-track transitivity and phylogenetic reconciliation methodology.

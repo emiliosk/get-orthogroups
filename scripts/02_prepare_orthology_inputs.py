@@ -9,9 +9,21 @@ from pathlib import Path
 def main(input_transcripts, raw_fasta_dir, raw_gff_dir, fasta_out_dir, coords_out_dir, species_config):
     print("Loading transcript metadata...")
     trans_df = pd.read_csv(input_transcripts)
-    # Ensure IDs are strings and stripped
-    trans_df['ensembl_transcript_id'] = trans_df['ensembl_transcript_id'].astype(str).str.strip('"')
-    canonical_transcripts = set(trans_df[trans_df['transcript_is_canonical'] == 1]['ensembl_transcript_id'])
+    # Support ensembl_transcript_id or transcript_id
+    t_col = 'ensembl_transcript_id' if 'ensembl_transcript_id' in trans_df.columns else ('transcript_id' if 'transcript_id' in trans_df.columns else None)
+    if not t_col:
+        raise KeyError(f"Transcript table must contain 'ensembl_transcript_id' or 'transcript_id'. Found: {list(trans_df.columns)}")
+    
+    trans_df['ensembl_transcript_id'] = trans_df[t_col].astype(str).str.strip('"').str.strip()
+    
+    # Filter for canonical transcripts if flag is present, otherwise assume all rows are target transcripts
+    if 'transcript_is_canonical' in trans_df.columns:
+        canonical_mask = trans_df['transcript_is_canonical'].astype(str).str.strip().isin(['1', '1.0', 'True', 'true'])
+        canonical_transcripts = set(trans_df[canonical_mask]['ensembl_transcript_id'])
+        print(f"  Identified {len(canonical_transcripts)} canonical transcripts from {len(trans_df)} records.")
+    else:
+        canonical_transcripts = set(trans_df['ensembl_transcript_id'])
+        print(f"  Loaded {len(canonical_transcripts)} representative transcripts.")
 
     # 1. Filter FASTAs
     Path(fasta_out_dir).mkdir(parents=True, exist_ok=True)
@@ -62,9 +74,9 @@ def main(input_transcripts, raw_fasta_dir, raw_gff_dir, fasta_out_dir, coords_ou
                 if len(parts) < 9: continue
                 if parts[2] == 'CDS':
                     attr = parts[8]
-                    p_match = re.search(r'ID=CDS:([\w.]+)', attr)
+                    p_match = re.search(r'(?:ID=CDS:|ID=protein:|protein_id=|ID=)([\w.]+)', attr)
                     if p_match:
-                        p_id = p_match.group(1)
+                        p_id = p_match.group(1).replace('CDS:', '').replace('protein:', '')
                         coords.append([parts[0], int(parts[3]), int(parts[4]), p_id])
         
         if not coords:
@@ -92,8 +104,9 @@ if __name__ == "__main__":
         with open("config.yaml", "r") as f:
             config = yaml.safe_load(f)
         version = config.get("ensembl_version", "109")
+        input_file = config["paths"].get("transcripts", config["paths"].get("metadata", f"input/DB/ensembl_v{version}_multispecies_transcripts.csv"))
         main(
-            input_transcripts = f"input/DB/ensembl_v{version}_multispecies_transcripts.csv",
+            input_transcripts = input_file,
             raw_fasta_dir = "input/DB/raw_fastas",
             raw_gff_dir = "input/DB/gff3",
             fasta_out_dir = config["paths"]["fasta_dir"],

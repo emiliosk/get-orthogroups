@@ -84,7 +84,7 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
 def main():
     master_path = snakemake.input.master
     fasta_dir = snakemake.config['paths']['fasta_dir']
-    species_tree = snakemake.config['paths']['species_tree']
+    species_tree_val = snakemake.config.get('species_tree') or snakemake.config['paths'].get('species_tree')
     out_tar = snakemake.output.tar
     
     mafft_bin = snakemake.config['tools'].get('mafft', 'mafft')
@@ -100,6 +100,15 @@ def main():
     os.makedirs(msa_dir, exist_ok=True)
     os.makedirs(tree_dir, exist_ok=True)
     os.makedirs(tmp_dir, exist_ok=True)
+    
+    # If species_tree is an inline string, write it to a temporary file for treerecs
+    if isinstance(species_tree_val, str) and species_tree_val.strip().startswith('('):
+        tree_file = os.path.join(tmp_dir, "species_tree.nwk")
+        with open(tree_file, "w") as f:
+            f.write(species_tree_val.strip() + "\n")
+        species_tree = tree_file
+    else:
+        species_tree = species_tree_val
     
     master = pd.read_csv(master_path, sep='\t')
     groups = master[master['ens_orthogroup_id'] != 'unassigned'].groupby('ens_orthogroup_id')['ensembl_id'].apply(list).to_dict()
@@ -136,8 +145,9 @@ def main():
     with tarfile.open(out_tar, "w:gz") as tar:
         tar.add(out_dir, arcname="Phylogenetic_Trees")
     
-    # Clean up uncompressed dir to save inodes (DISABLED to keep files for visualization)
-    # shutil.rmtree(out_dir)
+    # Clean up uncompressed dir to save inodes
+    if os.path.exists(out_dir):
+        shutil.rmtree(out_dir)
     print("Done!")
 
 if __name__ == "__main__":

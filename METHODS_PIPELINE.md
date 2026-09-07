@@ -86,7 +86,7 @@ The pipeline is fully automated and handles the entire lifecycle:
 
 ---
 
-## 5. Visualization
+## 7. Visualization
 
 We provide an R script, `scripts/08_plot_trees.R`, to visualize the generated gene trees while highlighting the high-confidence assignments.
 
@@ -110,3 +110,11 @@ ggsave("OG_00001_tree.pdf", p_tree, width=10, height=6)
 p_msa <- plot_atlas_msa("OG_00001", df, "ensembl_pipeline_output/Phylogenetic_Trees/MSAs/OG_00001.fa", start_pos=1, end_pos=100)
 ggsave("OG_00001_msa.pdf", p_msa, width=10, height=6)
 ```
+
+---
+
+## Related Documentation
+
+* [README.md](README.md) - Pipeline overview and quick start.
+* [USAGE_GUIDE.md](USAGE_GUIDE.md) - Configuration, upgrading Ensembl, and adding species.
+* [METRICS_AND_RANKING.md](METRICS_AND_RANKING.md) - Metric definitions and ortholog ranking algorithm.

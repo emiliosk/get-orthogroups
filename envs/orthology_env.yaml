@@ -5,6 +5,8 @@ channels:
 dependencies:
   - python=3.11
   - pandas
+  - numpy
+  - pyyaml
   - ete3
   - networkx
   - scikit-learn

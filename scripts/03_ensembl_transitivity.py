@@ -9,14 +9,54 @@ def main():
     output_path = snakemake.output.baseline
     species_config = snakemake.config['species']
     
-    # Create mapping: scientific_name -> CODE (e.g., homo_sapiens -> HUMAN)
+    # Create robust species mapping (scientific_name, lowercase, atlas_name, common name -> CODE)
     sci_to_code = {info['scientific_name']: code for code, info in species_config.items()}
-    # Create mapping: standard_name (atlas_name) -> CODE (e.g., human -> HUMAN)
-    standard_to_code = {info['atlas_name']: code for code, info in species_config.items()}
+    standard_to_code = {}
+    for code, info in species_config.items():
+        standard_to_code[code] = code
+        standard_to_code[code.lower()] = code
+        standard_to_code[code.upper()] = code
+        sci = info.get('scientific_name', '')
+        if sci:
+            standard_to_code[sci] = code
+            standard_to_code[sci.lower()] = code
+        for extra_key in ['atlas_name', 'common_name']:
+            if extra_key in info and info[extra_key]:
+                val = str(info[extra_key])
+                standard_to_code[val] = code
+                standard_to_code[val.lower()] = code
+
+    # Common English species names auto-mapping fallback if not explicitly in config
+    common_defaults = {
+        'human': 'HUMAN',
+        'mouse': 'MOUSE',
+        'rat': 'RATNO',
+        'macaque': 'MACFA',
+        'pig': 'PIGXX',
+        'dog': 'CANLF',
+        'marmoset': 'CALJA',
+        'chimp': 'PANTR',
+        'bonobo': 'PANPA',
+        'gorilla': 'GORGO',
+        'rhesus': 'MACMU'
+    }
+    for common_name, default_code in common_defaults.items():
+        if common_name not in standard_to_code:
+            if default_code in species_config:
+                standard_to_code[common_name] = default_code
+            else:
+                for code in species_config.keys():
+                    if common_name.lower() in code.lower() or code.lower().startswith(common_name[:3].lower()):
+                        standard_to_code[common_name] = code
+                        break
 
     # 1. Load metadata
     print("Loading project metadata...")
     meta = pd.read_csv(meta_path)
+    gene_col = 'ensembl_id' if 'ensembl_id' in meta.columns else 'ensembl_gene_id'
+    if gene_col not in meta.columns:
+        raise KeyError(f"Metadata must contain 'ensembl_id' or 'ensembl_gene_id'. Found: {list(meta.columns)}")
+    meta['ensembl_id'] = meta[gene_col].astype(str).str.strip()
     pc_gene_ids = set(meta['ensembl_id'].tolist())
     print(f"  Loaded {len(pc_gene_ids)} target protein-coding genes.")
 
@@ -107,7 +147,13 @@ def main():
     og_merged = pd.merge(og_all_df, og_hq_df, on='ensembl_id', how='outer')
     
     # 5. Merge with metadata and handle singletons
-    meta_subset = meta[['ensembl_id', 'species', 'gene_symbol']].drop_duplicates()
+    symbol_col = 'gene_symbol' if 'gene_symbol' in meta.columns else ('external_gene_name' if 'external_gene_name' in meta.columns else None)
+    if symbol_col and symbol_col in meta.columns:
+        meta['gene_symbol'] = meta[symbol_col].fillna(meta['ensembl_id'])
+    else:
+        meta['gene_symbol'] = meta['ensembl_id']
+
+    meta_subset = meta[['ensembl_id', 'species', 'gene_symbol']].drop_duplicates('ensembl_id')
     final_df = meta_subset.merge(og_merged, on='ensembl_id', how='left')
     
     def handle_singletons(df, col_name, prefix):
@@ -128,7 +174,7 @@ def main():
     # Rename columns to match requested names
     final_df = final_df.rename(columns={'OG_id': 'ens_orthogroup_id', 'HQ_id': 'ens_hqorthogroup_id'})
         
-    final_df['species_code'] = final_df['species'].map(standard_to_code).fillna(final_df['species'])
+    final_df['species_code'] = final_df['species'].astype(str).str.lower().map(standard_to_code).fillna(final_df['species'])
 
     # 6. Save
     print(f"Saving baseline to {output_path}...")

@@ -1,14 +1,18 @@
 # Configuration for Ensembl-Only Synteny-Adjusted Orthology Pipeline
 
-ensembl_version: "109"
+ensembl_version: "115"
+
+# Species Tree (Newick string or file path)
+# Tip labels MUST match species keys defined below
+species_tree: "((((MACFA:1,HUMAN:1)1:1,(RATNO:1,MOUSE:1)1:1)1:1,(PIGXX:1,CANLF:1)1:1)1:1);"
 
 # Paths to input databases relative to the pipeline directory
 paths:
-  metadata: "input/gene_metadata/protein_coding_genes.csv"
+  metadata: "input/gene_metadata/target_gene_annotations.csv"
+  # Optional: transcripts defaults to metadata path if omitted
   raw_homologies_dir: "input/DB/ensembl_homologies_raw"
   genespace_coords: "input/DB/genespace_coords"
   fasta_dir: "input/DB/canonical_transcripts"
-  species_tree: "input/DB/species_tree.nwk"
 
 # Binary paths for phylogeny tools
 # -----------------------------------------------------------------------------
@@ -34,27 +38,21 @@ species:
   HUMAN:
     scientific_name: "homo_sapiens"
     assembly: "GRCh38"
-    atlas_name: "human"
   MOUSE:
     scientific_name: "mus_musculus"
     assembly: "GRCm39"
-    atlas_name: "mouse"
-  RATNO:
-    scientific_name: "rattus_norvegicus"
-    assembly: "mRatBN7.2" # NOTE: Change to "GRCr8" if using Ensembl 115+
-    atlas_name: "rat"
   MACFA:
     scientific_name: "macaca_fascicularis"
     assembly: "Macaca_fascicularis_6.0"
-    atlas_name: "macaque"
+  RATNO:
+    scientific_name: "rattus_norvegicus"
+    assembly: "GRCr8"
   PIGXX:
     scientific_name: "sus_scrofa"
     assembly: "Sscrofa11.1"
-    atlas_name: "pig"
-  # DOGXX:
-  #   scientific_name: "canis_lupus_familiaris"
-  #   assembly: "ROS_Cfam_1.0"
-  #   atlas_name: "dog"
+  CANLF:
+    scientific_name: "canis_lupus_familiaris"
+    assembly: "ROS_Cfam_1.0"
 
 # Synteny Parameters
 synteny:
@@ -68,3 +66,8 @@ refinement:
   strict_trim: false
   lifeline_trim: false
   lifeline_tree_trim: false
+
+# Optional Phylogenetic Tree & MSA computation (Rule 7)
+# Set to false to produce only the Master table & Pairwise tables (Rules 1-6)
+compute_trees: false
+

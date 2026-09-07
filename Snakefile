@@ -6,11 +6,18 @@ OUTPUT_DIR = config["output_dir"]
 SPECIES_LIST = [info['scientific_name'] for info in config["species"].values()]
 SPECIES_CODES = list(config["species"].keys())
 
+COMPUTE_TREES = config.get("compute_trees", False)
+
+ALL_TARGETS = [
+    f"{OUTPUT_DIR}/Consensus_Master.tsv",
+    f"{OUTPUT_DIR}/pairwise_tables"
+]
+if COMPUTE_TREES:
+    ALL_TARGETS.append(f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz")
+
 rule all:
     input:
-        f"{OUTPUT_DIR}/Consensus_Master.tsv",
-        f"{OUTPUT_DIR}/pairwise_tables",
-        f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz"
+        ALL_TARGETS
 
 rule download_data:
     output:
@@ -24,7 +31,7 @@ rule prepare_inputs:
     input:
         fastas = expand("input/DB/raw_fastas/{code}.fa.gz", code=SPECIES_CODES),
         gffs = expand("input/DB/gff3/{code}.gff3.gz", code=SPECIES_CODES),
-        transcripts = config["paths"].get("transcripts", f"input/DB/ensembl_v{VERSION}_multispecies_transcripts.csv"),
+        transcripts = config["paths"].get("transcripts", config["paths"]["metadata"]),
         metadata = config["paths"]["metadata"]
     output:
         canonical_fastas = expand(config["paths"]["fasta_dir"] + "/{code}.fa", code=SPECIES_CODES),

@@ -4,7 +4,8 @@ import yaml
 import sys
 
 def main():
-    print("=== Orthology Pipeline Summary Statistics ===\n")
+    lines = []
+    lines.append("=== Orthology Pipeline Summary Statistics ===\n")
     
     config_path = "config.yaml"
     if not os.path.exists(config_path):
@@ -23,33 +24,44 @@ def main():
         
     df = pd.read_csv(master_path, sep='\t')
     
-    print(f"Total Genes: {len(df)}")
-    print(f"Total Species: {df['species_code'].nunique()} ({', '.join(df['species_code'].unique())})")
+    lines.append(f"Total Genes: {len(df)}")
+    lines.append(f"Total Species: {df['species_code'].nunique()} ({', '.join(df['species_code'].unique())})")
     
-    print("\n--- Orthogroup Stats (Standard Track) ---")
+    lines.append("\n--- Orthogroup Stats (Standard Track) ---")
     og_stats = df.drop_duplicates('ens_orthogroup_id')['ens_orthogroup_status'].value_counts()
-    print(f"Total Orthogroups: {df['ens_orthogroup_id'].nunique()}")
+    lines.append(f"Total Orthogroups: {df['ens_orthogroup_id'].nunique()}")
     for status, count in og_stats.items():
-        print(f"  {status:12}: {count}")
+        lines.append(f"  {status:12}: {count}")
         
-    print("\n--- Orthogroup Stats (High-Confidence Track) ---")
+    lines.append("\n--- Orthogroup Stats (High-Confidence Track) ---")
     hq_stats = df.drop_duplicates('ens_hqorthogroup_id')['ens_hqorthogroup_status'].value_counts()
-    print(f"Total HQ Groups: {df['ens_hqorthogroup_id'].nunique()}")
+    lines.append(f"Total HQ Groups: {df['ens_hqorthogroup_id'].nunique()}")
     for status, count in hq_stats.items():
-        print(f"  {status:12}: {count}")
+        lines.append(f"  {status:12}: {count}")
 
-    print("\n--- Species Coverage (in Standard OGs) ---")
+    lines.append("\n--- Species Coverage (in Standard OGs) ---")
     coverage = df.groupby('ens_orthogroup_id')['species_code'].nunique().value_counts().sort_index(ascending=False)
     for n_sp, count in coverage.items():
-        print(f"  Groups with {n_sp} species: {count}")
+        lines.append(f"  Groups with {n_sp} species: {count}")
 
     # Pairwise Ranking Check
     pairwise_dir = os.path.join(out_dir, "pairwise_tables")
     if os.path.exists(pairwise_dir):
         n_tables = len([f for f in os.listdir(pairwise_dir) if f.endswith('.tsv')])
-        print(f"\n--- Exported Pairwise Tables: {n_tables} ---")
+        lines.append(f"\n--- Exported Pairwise Tables: {n_tables} ---")
 
-    print("\n" + "="*40)
+    lines.append("\n" + "="*40)
+    
+    # Print to console
+    output_text = "\n".join(lines)
+    print(output_text)
+    
+    # Save to file
+    out_file = os.path.join(out_dir, "Summary_Stats.md")
+    os.makedirs(out_dir, exist_ok=True)
+    with open(out_file, 'w') as f:
+        f.write("# Orthology Pipeline Summary Statistics\n\n```text\n" + output_text + "\n```\n")
+    print(f"Summary stats saved to {out_file}")
 
 if __name__ == "__main__":
     main()
