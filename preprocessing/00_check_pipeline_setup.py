@@ -8,21 +8,28 @@ import pandas as pd
 
 def check_tools(config):
     print("--- 1. Checking Tools ---")
+    compute_trees = config.get("compute_trees", False)
     all_ok = True
-    for tool, path in config['tools'].items():
+    for tool, path in config.get('tools', {}).items():
         if os.path.isabs(path):
             if os.path.exists(path) and os.access(path, os.X_OK):
                 print(f"[OK] {tool:10}: {path}")
             else:
-                print(f"[FAIL] {tool:10}: Not found or not executable at {path}")
-                all_ok = False
+                if not compute_trees and tool == "treerecs":
+                    print(f"[INFO] {tool:10}: Not found at '{path}', but compute_trees is false (only needed for Rule 7).")
+                else:
+                    print(f"[FAIL] {tool:10}: Not found or not executable at {path}")
+                    all_ok = False
         else:
             found = shutil.which(path)
             if found:
                 print(f"[OK] {tool:10}: Found in PATH ({found})")
             else:
-                print(f"[FAIL] {tool:10}: Not found in PATH. Check env or config.")
-                all_ok = False
+                if not compute_trees and tool == "treerecs":
+                    print(f"[INFO] {tool:10}: Not found in PATH, but compute_trees is false (only needed for Rule 7).")
+                else:
+                    print(f"[FAIL] {tool:10}: Not found in PATH. Check env or config.")
+                    all_ok = False
     return all_ok
 
 def check_ensembl():

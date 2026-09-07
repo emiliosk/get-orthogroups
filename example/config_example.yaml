@@ -16,7 +16,7 @@ paths:
 tools:
   mafft: "mafft"
   fasttree: "FastTree"
-  treerecs: "/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs"
+  treerecs: "treerecs"
 
 output_dir: "example/output_example"
 
