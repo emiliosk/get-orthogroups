@@ -7,9 +7,9 @@ def main():
     lines = []
     lines.append("=== Orthology Pipeline Summary Statistics ===\n")
     
-    config_path = "config.yaml"
+    config_path = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
     if not os.path.exists(config_path):
-        print("Error: config.yaml not found.")
+        print(f"Error: Config file '{config_path}' not found.")
         sys.exit(1)
         
     with open(config_path, 'r') as f:

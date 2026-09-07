@@ -14,6 +14,7 @@ sample_plots/
 final_samples/
 # Large Production Outputs
 ensembl_pipeline_output/
+example/output_example/
 # Phylogenetic_Trees.tar.gz (Removed from ignore to allow GitHub upload)
 
 # Logs
