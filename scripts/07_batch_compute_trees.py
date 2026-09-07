@@ -89,12 +89,8 @@ def main():
     
     mafft_bin = snakemake.config['tools'].get('mafft', 'mafft')
     treerecs_bin = snakemake.config['tools'].get('treerecs', 'treerecs')
-    if not shutil.which(treerecs_bin):
-        treerecs_bin = os.environ.get("TREERECS_BIN") or (
-            "/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs"
-            if os.path.exists("/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs")
-            else treerecs_bin
-        )
+    if not shutil.which(treerecs_bin) and os.environ.get("TREERECS_BIN"):
+        treerecs_bin = os.environ["TREERECS_BIN"]
     output_dir = snakemake.config.get('output_dir', 'ensembl_pipeline_output')
     
     out_dir = os.path.join(output_dir, "Phylogenetic_Trees")

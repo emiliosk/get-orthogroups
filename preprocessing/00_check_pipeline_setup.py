@@ -23,15 +23,13 @@ def check_tools(config):
         else:
             env_var = f"{tool.upper()}_BIN"
             found = shutil.which(path) or os.environ.get(env_var)
-            if not found and tool == "treerecs" and os.path.exists("/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs"):
-                found = "/Users/emilioskarwan/anaconda3/envs/intel_phylo/bin/treerecs"
             if found:
                 print(f"[OK] {tool:10}: Found ({found})")
             else:
                 if not compute_trees and tool == "treerecs":
                     print(f"[INFO] {tool:10}: Not found in PATH, but compute_trees is false (only needed for Rule 7).")
                 else:
-                    print(f"[FAIL] {tool:10}: Not found in PATH. Check env or config.")
+                    print(f"[FAIL] {tool:10}: Not found in PATH or ${env_var}. Check env or config.")
                     all_ok = False
     return all_ok
 
