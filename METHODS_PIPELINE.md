@@ -83,6 +83,7 @@ The pipeline is fully automated and handles the entire lifecycle:
 5.  **`synteny_refinement`**: Calculates local informational GOC scores and assigns cardinality status tags.
 6.  **`finalize_tables`**: Generates consensus symbols and produces the final `Consensus_Master.tsv`.
 7.  **`compute_trees`** (Optional): Builds MAFFT alignments and FastTree/Treerecs reconciled gene trees.
+8.  **`generate_summary_stats`**: Compiles overall dataset metrics, species coverage, cardinality breakdowns, and outputs `Summary_Stats.md`.
 
 ---
 
