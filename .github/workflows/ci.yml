@@ -24,6 +24,8 @@ jobs:
           environment-file: envs/orthology_env.yaml
           activate-environment: ensembl_orthology
           auto-activate-base: false
+          channels: conda-forge,bioconda
+          channel-priority: strict
 
       - name: Verify Environment Packages & Tools
         run: |
