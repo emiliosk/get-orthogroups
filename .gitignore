@@ -26,6 +26,7 @@ slurm-*.out
 local_plotting/
 paper_methods/
 updates_to_do/
+test/
 
 # OS specific
 .DS_Store
