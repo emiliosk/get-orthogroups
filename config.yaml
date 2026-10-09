@@ -73,8 +73,21 @@ species:
 synteny:
   goc_window: 5
 
+# =============================================================================
+# ORTHOLOGY CURATION & RESCUE (v0.2)
+# =============================================================================
+curation:
+  manual_file: ""  # Optional path to user curation CSV (e.g. "input/manual_curation.csv")
+
+rescue:
+  generate_suggestions: false      # Set TRUE to generate rescue/ tables during 'snakemake'
+  max_iterations: 3                # Iterative anchor-chaining passes (default: 3, auto-converges)
+  min_alignment_score: 50.0        # BLOSUM62 score floor for auto-approval
+  min_consensus_species_unnamed: 2 # Minimum reference species for unannotated transcripts
+  max_cassette_size: 5             # Maximum intervening genes between flanking anchors
+
 # Optional Phylogenetic Tree & MSA computation (Rule 7)
-compute_trees: true
+compute_trees: false
 
 # Tree building & species-tree reconciliation parameters (Rule 7)
 trees:

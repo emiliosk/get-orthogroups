@@ -108,6 +108,31 @@ def main():
     print(f"  Total edges (All): {total_edges_all}")
     print(f"  Total edges (HQ):  {total_edges_hq}")
     
+    # 2.5 Ingest Manual Curation (v0.2)
+    curation_path = snakemake.config.get("curation", {}).get("manual_file")
+    if not curation_path and os.path.exists("input/manual_curation.csv"):
+        curation_path = "input/manual_curation.csv"
+    if curation_path and os.path.exists(curation_path):
+        print(f"Ingesting manual curation from {curation_path}...")
+        try:
+            cur_df = pd.read_csv(curation_path)
+            if 'curator_decision' in cur_df.columns:
+                cur_df = cur_df[cur_df['curator_decision'] == 'ACCEPT']
+            
+            curated_added_all = 0
+            curated_added_hq = 0
+            for _, row in cur_df.iterrows():
+                s_id = str(row['gene_id']).strip()
+                t_id = str(row['target_gene_id']).strip()
+                if s_id in pc_gene_ids and t_id in pc_gene_ids and s_id != t_id:
+                    G_all.add_edge(s_id, t_id)
+                    curated_added_all += 1
+                    G_hq.add_edge(s_id, t_id)
+                    curated_added_hq += 1
+            print(f"  Successfully ingested {curated_added_all} curated edges into transitivity graph.")
+        except Exception as e:
+            print(f"  [WARNING] Failed to parse curation file {curation_path}: {e}")
+
     # 3. Clustering (Connected Components)
     print("Clustering into inclusive HOGs...")
     

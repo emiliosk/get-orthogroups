@@ -3,6 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Snakemake](https://img.shields.io/badge/snakemake-≥7.0-brightgreen.svg)](https://snakemake.readthedocs.io/)
 [![Ensembl v115](https://img.shields.io/badge/ensembl-v115-orange.svg)](https://www.ensembl.org/)
+[![Version](https://img.shields.io/badge/version-v0.2--dev-yellow.svg)](https://github.com/emiliosk/get-orthogroups)
 
 A Snakemake workflow for mammalian orthology inference. The pipeline processes Ensembl Compara pairwise homologies via dual-track transitivity clustering, evaluates local gene-order conservation using a chromosome-bounded neighborhood Jaccard metric, and ranks multi-copy orthologs through a sequential hierarchy of sequence and synteny criteria.
 
@@ -110,12 +111,40 @@ snakemake --configfile example/config_example.yaml --cores 4
 ```
 Upon completion, the pipeline automatically prints summary statistics to the terminal and writes `example/output_example/Summary_Stats.md`.
 
-### Step 3: Run the Production Pipeline
-To run the full pipeline on your target gene annotations:
+### Step 3: Run the Production Pipeline (3-Stage Execution Model)
+
+In **v0.2**, the pipeline supports a flexible, decoupled 3-command execution model designed for active curation:
+
+#### Phase 1: Generate Rescue Suggestions & Discovery
+Run the initial clustering and iterative singleton rescue engine across all species:
 ```bash
-snakemake --cores 4
+snakemake --cores 4 rescue
 ```
-Snakemake will execute all stages—from downloading raw homologies to synteny scoring, tree reconciliation (if enabled), and automatically outputting `ensembl_pipeline_output/Summary_Stats.md`.
+This produces `ensembl_pipeline_output/rescue/`, containing:
+* `rescue_curation_candidates.csv`: Rich 28-column diagnostic table detailing dual synteny vs. symbol evidence.
+* `manual_curation_sample.csv`: Pre-formatted 9-column template of proposed rescues.
+
+#### Phase 2: Review & Apply Manual Curation (Human-in-the-Loop)
+Copy or edit the candidate decisions:
+```bash
+cp ensembl_pipeline_output/rescue/manual_curation_sample.csv input/manual_curation.csv
+```
+Inspect the suggestions and change `curator_decision` (`ACCEPT` or `REJECT`) as desired.
+
+#### Phase 3: Finalize Baseline with Curated Rescues Ingested
+Re-run transitivity clustering with your curation decisions incorporated into the graph, computing consensus tables, pairwise matrices, and local synteny:
+```bash
+snakemake --cores 4 baseline
+```
+
+#### Phase 4: Compute Phylogenetic Trees (Optional)
+If you wish to compute MAFFT multiple sequence alignments and Treerecs species-tree reconciliation trees on the finalized orthogroups:
+```bash
+snakemake --cores 8 trees
+```
+
+> [!TIP]
+> **One-Command Full Execution:** You can also run the standard `snakemake --cores 4` command. If `input/manual_curation.csv` is present, it is automatically ingested. Toggle `rescue.generate_suggestions: true` or `compute_trees: true` in `config.yaml` to include those stages in default execution.
 
 > [!TIP]
 > **Resuming Interrupted Runs:** If an execution is ever interrupted midway (e.g., via `Ctrl+C` or a compute cluster timeout), add `--rerun-incomplete` to have Snakemake cleanly re-run the unfinished steps:
@@ -124,9 +153,8 @@ Snakemake will execute all stages—from downloading raw homologies to synteny s
 > ```
 > *(Optional: On shared/NFS cluster storage with filesystem latency, you can also append `--latency-wait 60`)*.
 
-
 ### Step 4: Re-inspect Summary Statistics (Optional)
-The pipeline automatically compiles and displays summary metrics at the end of the run. To re-inspect or display them anytime from the terminal:
+The pipeline automatically compiles and displays summary metrics (including v0.2 singleton rescue statistics) at the end of the run. To re-inspect or display them anytime from the terminal:
 ```bash
 # For production pipeline results:
 python scripts/08_generate_summary_stats.py
@@ -173,7 +201,18 @@ tools:
 threads: 8
 output_dir: "ensembl_pipeline_output"
 symbol_reference_species: "HUMAN"
-compute_trees: true
+compute_trees: false
+
+# Curation and Rescue Parameters (v0.2)
+curation:
+  manual_file: ""  # Optional path to curation CSV (e.g., "input/manual_curation.csv")
+
+rescue:
+  generate_suggestions: false      # Set true to run rescue stage during default 'snakemake'
+  max_iterations: 3                # Iterative anchor-chaining passes (default: 3, auto-converges)
+  min_alignment_score: 50.0        # BLOSUM62 score floor for auto-approval
+  min_consensus_species_unnamed: 2 # Minimum reference species for unannotated transcripts
+  max_cassette_size: 5             # Maximum intervening genes between flanking anchors
 
 # Tree building & species-tree reconciliation parameters (Rule 7)
 trees:
@@ -230,7 +269,11 @@ All outputs are saved to `ensembl_pipeline_output/`:
    * Whole genome alignment coverage (`ens_wga_coverage`) — *[Ensembl]*
    * Confidence flags (`ens_is_high_confidence`) — *[Ensembl]*
    * Directional ranks (`ortholog_rank_{SP1}`, `ortholog_rank_{SP2}`) — *[Custom Pipeline Metric]*
-3. **`Phylogenetic_Trees.tar.gz`** (Optional): Generated when `compute_trees: true`. Contains MAFFT multiple sequence alignments (`MSAs/`) and Treerecs reconciled phylogenetic trees (`Gene_Trees/`) for all multi-gene orthogroups ($\ge 2$ genes), featuring species-tree parsimonious re-rooting, branch support contraction ($0.8$), and full selenoprotein compatibility.
+3. **`rescue/` (v0.2 Rescue & Expert Curation Deliverables)**: Generated via `snakemake rescue`:
+   * **`rescued_genes_all.tsv`**: Complete catalog of all rescued singletons across iterative anchor-chaining passes (27 columns, full paired 4-anchor micro-synteny coordinates, Needleman-Wunsch alignment scores, identity, and coverage percentages).
+   * **`rescue_curation_candidates.csv`**: Rich multi-evidence review table (28 columns) highlighting dual synteny vs. symbol orthology hypotheses, conflict types (`DISCORDANT_SYMBOL_VS_SYNTENY`, `PURE_SYNTENY_UNANNOTATED`), and recommended curator actions.
+   * **`manual_curation_sample.csv`**: Streamlined template (9 columns) pre-populated with high-confidence proposed rescues, ready to be reviewed, modified (`ACCEPT`/`REJECT`), and ingested via `input/manual_curation.csv`.
+4. **`Phylogenetic_Trees.tar.gz`** (Optional): Generated when `compute_trees: true` or via `snakemake trees`. Contains MAFFT multiple sequence alignments (`MSAs/`) and Treerecs reconciled phylogenetic trees (`Gene_Trees/`) for all multi-gene orthogroups ($\ge 2$ genes), featuring species-tree parsimonious re-rooting, branch support contraction ($0.8$), and full selenoprotein compatibility.
 
 ---
 

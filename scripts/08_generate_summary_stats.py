@@ -58,6 +58,20 @@ def main():
         n_tables = len([f for f in os.listdir(pairwise_dir) if f.endswith('.tsv')])
         lines.append(f"\n--- Exported Pairwise Tables: {n_tables} ---")
 
+    # Singleton Rescue Stats Check (v0.2)
+    rescue_file = os.path.join(out_dir, "rescue", "rescued_genes_all.tsv")
+    if os.path.exists(rescue_file):
+        try:
+            df_rescue = pd.read_csv(rescue_file, sep='\t')
+            lines.append(f"\n--- Singleton Rescue & Curation (v0.2) ---")
+            lines.append(f"Total Rescues Suggested: {len(df_rescue):,}")
+            if 'iteration_rescued' in df_rescue.columns:
+                iter_counts = df_rescue['iteration_rescued'].value_counts().sort_index()
+                for it, cnt in iter_counts.items():
+                    lines.append(f"  Iteration {it}: {cnt:,} rescues")
+        except Exception:
+            pass
+
     # Phylogenetic Trees Check
     if tree_tar and os.path.exists(tree_tar):
         size_mb = os.path.getsize(tree_tar) / (1024 * 1024)

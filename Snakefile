@@ -1,4 +1,5 @@
 configfile: "config.yaml"
+import os
 
 # Target variables from config
 VERSION = config.get("ensembl_version", "109")
@@ -6,20 +7,52 @@ OUTPUT_DIR = config["output_dir"]
 SPECIES_LIST = [info['scientific_name'] for info in config["species"].values()]
 SPECIES_CODES = list(config["species"].keys())
 
+# Toggles from config
 COMPUTE_TREES = config.get("compute_trees", False)
+RESCUE_SUGGESTIONS = config.get("rescue", {}).get("generate_suggestions", False) or config.get("rescue", {}).get("enabled", False)
 
+# Baseline targets
 ALL_TARGETS = [
     f"{OUTPUT_DIR}/Consensus_Master.tsv",
     f"{OUTPUT_DIR}/pairwise_tables",
     f"{OUTPUT_DIR}/Summary_Stats.md"
 ]
+
+# Conditionally append rescue deliverables
+if RESCUE_SUGGESTIONS:
+    ALL_TARGETS.extend([
+        f"{OUTPUT_DIR}/rescue/rescued_genes_all.tsv",
+        f"{OUTPUT_DIR}/rescue/rescue_curation_candidates.csv",
+        f"{OUTPUT_DIR}/rescue/manual_curation_sample.csv"
+    ])
+
+# Conditionally append tree computations
 if COMPUTE_TREES:
     ALL_TARGETS.append(f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz")
 
+# --- Default Target Rule ---
 rule all:
     input:
         ALL_TARGETS
 
+# --- Dedicated CLI Alias Target Rules ---
+rule baseline:
+    input:
+        f"{OUTPUT_DIR}/Consensus_Master.tsv",
+        f"{OUTPUT_DIR}/pairwise_tables",
+        f"{OUTPUT_DIR}/Summary_Stats.md"
+
+rule rescue:
+    input:
+        f"{OUTPUT_DIR}/rescue/rescued_genes_all.tsv",
+        f"{OUTPUT_DIR}/rescue/rescue_curation_candidates.csv",
+        f"{OUTPUT_DIR}/rescue/manual_curation_sample.csv"
+
+rule trees:
+    input:
+        f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz"
+
+# --- Core Pipeline Rules ---
 rule download_data:
     output:
         homologies = expand(config["paths"]["raw_homologies_dir"] + "/{species}.tsv.gz", species=SPECIES_LIST),
@@ -40,14 +73,42 @@ rule prepare_inputs:
     script:
         "scripts/02_prepare_orthology_inputs.py"
 
+# Curation input dependency resolution
+curation_file = config.get("curation", {}).get("manual_file", "")
+if not curation_file and os.path.exists("input/manual_curation.csv"):
+    curation_file = "input/manual_curation.csv"
+curation_input = [curation_file] if curation_file and os.path.exists(curation_file) else []
+
 rule ensembl_transitivity:
     input:
         metadata = config["paths"]["metadata"],
-        homologies = expand(config["paths"]["raw_homologies_dir"] + "/{species}.tsv.gz", species=SPECIES_LIST)
+        homologies = expand(config["paths"]["raw_homologies_dir"] + "/{species}.tsv.gz", species=SPECIES_LIST),
+        curation = curation_input
     output:
         baseline = f"{OUTPUT_DIR}/Ensembl_N0_Clusters.tsv"
     script:
         "scripts/03_ensembl_transitivity.py"
+
+rule run_singleton_rescue:
+    input:
+        baseline_clusters = f"{OUTPUT_DIR}/Ensembl_N0_Clusters.tsv",
+        metadata = config["paths"]["metadata"],
+        canonical_fastas = expand(config["paths"]["fasta_dir"] + "/{code}.fa", code=SPECIES_CODES),
+        coords = expand(config["paths"]["genespace_coords"] + "/{code}_coords.bed", code=SPECIES_CODES)
+    output:
+        rescued_tsv = f"{OUTPUT_DIR}/rescue/rescued_genes_all.tsv",
+        candidates_csv = f"{OUTPUT_DIR}/rescue/rescue_curation_candidates.csv",
+        curation_sample_csv = f"{OUTPUT_DIR}/rescue/manual_curation_sample.csv"
+    params:
+        coords_dir = config["paths"]["genespace_coords"],
+        fasta_dir = config["paths"]["fasta_dir"],
+        species_codes = SPECIES_CODES,
+        min_alignment_score = config.get("rescue", {}).get("min_alignment_score", 50.0),
+        min_consensus_species = config.get("rescue", {}).get("min_consensus_species_unnamed", 2),
+        max_cassette_size = config.get("rescue", {}).get("max_cassette_size", 5),
+        max_iterations = config.get("rescue", {}).get("max_iterations", 3)
+    script:
+        "scripts/09_singleton_rescue.py"
 
 rule build_consensus:
     input:
@@ -105,4 +166,3 @@ rule generate_summary_stats:
         stats = f"{OUTPUT_DIR}/Summary_Stats.md"
     script:
         "scripts/08_generate_summary_stats.py"
-
