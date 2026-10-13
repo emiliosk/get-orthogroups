@@ -36,6 +36,25 @@ rule all:
         ALL_TARGETS
 
 # --- Dedicated CLI Alias Target Rules ---
+rule init:
+    input:
+        check = f"{OUTPUT_DIR}/.setup_checked",
+        canonical_fastas = expand(config["paths"]["fasta_dir"] + "/{code}.fa", code=SPECIES_CODES),
+        coords = expand(config["paths"]["genespace_coords"] + "/{code}_coords.bed", code=SPECIES_CODES),
+        homologies = expand(config["paths"]["raw_homologies_dir"] + "/{species}.tsv.gz", species=SPECIES_LIST)
+    run:
+        print("\n" + "="*60)
+        print("PIPELINE INITIALIZATION COMPLETE")
+        print("="*60)
+        print("All reference homologies, canonical FASTAs, and genomic")
+        print("coordinate BED files have been verified and prepared.")
+        print("\nNext Steps:")
+        print("  - To run singleton rescue & generate suggestions:")
+        print("      snakemake --cores 4 rescue")
+        print("  - To run standard baseline clustering directly:")
+        print("      snakemake --cores 4 baseline")
+        print("="*60 + "\n")
+
 rule baseline:
     input:
         f"{OUTPUT_DIR}/Consensus_Master.tsv",
@@ -53,7 +72,17 @@ rule trees:
         f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz"
 
 # --- Core Pipeline Rules ---
+rule check_setup:
+    input:
+        metadata = config["paths"]["metadata"]
+    output:
+        flag = f"{OUTPUT_DIR}/.setup_checked"
+    script:
+        "preprocessing/00_check_pipeline_setup.py"
+
 rule download_data:
+    input:
+        check = f"{OUTPUT_DIR}/.setup_checked"
     output:
         homologies = expand(config["paths"]["raw_homologies_dir"] + "/{species}.tsv.gz", species=SPECIES_LIST),
         fastas = expand("input/DB/raw_fastas/{code}.fa.gz", code=SPECIES_CODES),

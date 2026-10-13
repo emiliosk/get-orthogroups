@@ -98,25 +98,33 @@ All pipeline dependencies, including Python packages, Snakemake, and phylogeneti
 
 ## Quick Start
 
-### Step 1: Run the Pre-flight Diagnostic Check
-Verify your environment, Ensembl REST API connectivity, input schemas, and inline species tree:
-```bash
-python preprocessing/00_check_pipeline_setup.py
-```
-
-### Step 2: Test Run with the Bundled Example
+### Step 1: Test Run with the Bundled Example
 A small 6-species test dataset (227 genes) is included in `example/`:
 ```bash
 snakemake --configfile example/config_example.yaml --cores 4
 ```
 Upon completion, the pipeline automatically prints summary statistics to the terminal and writes `example/output_example/Summary_Stats.md`.
 
-### Step 3: Run the Production Pipeline (3-Stage Execution Model)
+### Step 2: Run the Production Pipeline (Modular Execution Architecture)
 
-In **v0.2**, the pipeline supports a flexible, decoupled 3-command execution model designed for active curation:
+The pipeline is decoupled into modular stages designed for transparency and human-in-the-loop curation:
 
-#### Phase 1: Generate Rescue Suggestions & Discovery
-Run the initial clustering and iterative singleton rescue engine across all species:
+```mermaid
+flowchart LR
+    A["snakemake init"] -->|Databases Ready| B["snakemake rescue"]
+    B -->|Suggestions| C["Curate input/manual_curation.csv"]
+    C -->|Ingest| D["snakemake baseline"]
+    D -.->|Optional| E["snakemake trees"]
+```
+
+#### Phase 1: Initialize Database & Verify Environment
+Runs pre-flight diagnostics (tools, Ensembl REST connectivity, metadata schema, species tree), downloads raw Ensembl data, and prepares canonical FASTAs and coordinate BED files:
+```bash
+snakemake --cores 4 init
+```
+
+#### Phase 2: Generate Rescue Suggestions & Discovery
+Runs initial clustering and the iterative singleton rescue engine (3 iterations) across all species:
 ```bash
 snakemake --cores 4 rescue
 ```
@@ -124,20 +132,20 @@ This produces `ensembl_pipeline_output/rescue/`, containing:
 * `rescue_curation_candidates.csv`: Rich 28-column diagnostic table detailing dual synteny vs. symbol evidence.
 * `manual_curation_sample.csv`: Pre-formatted 9-column template of proposed rescues.
 
-#### Phase 2: Review & Apply Manual Curation (Human-in-the-Loop)
+#### Phase 3: Review & Apply Manual Curation (Human-in-the-Loop)
 Copy or edit the candidate decisions:
 ```bash
 cp ensembl_pipeline_output/rescue/manual_curation_sample.csv input/manual_curation.csv
 ```
 Inspect the suggestions and change `curator_decision` (`ACCEPT` or `REJECT`) as desired.
 
-#### Phase 3: Finalize Baseline with Curated Rescues Ingested
-Re-run transitivity clustering with your curation decisions incorporated into the graph, computing consensus tables, pairwise matrices, and local synteny:
+#### Phase 4: Finalize Baseline with Curated Rescues Ingested
+Re-runs transitivity clustering with your curation decisions incorporated into the graph, computing consensus tables, pairwise matrices, and local synteny:
 ```bash
 snakemake --cores 4 baseline
 ```
 
-#### Phase 4: Compute Phylogenetic Trees (Optional)
+#### Phase 5: Compute Phylogenetic Trees (Optional)
 If you wish to compute MAFFT multiple sequence alignments and Treerecs species-tree reconciliation trees on the finalized orthogroups:
 ```bash
 snakemake --cores 8 trees

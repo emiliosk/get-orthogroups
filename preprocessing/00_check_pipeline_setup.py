@@ -162,16 +162,21 @@ def check_species_config(config):
 def main():
     print("=== Pipeline Pre-flight Setup Check ===\n")
     
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
-    if not os.path.exists(config_path):
-        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), config_path)
-        
-    if not os.path.exists(config_path):
-        print("Error: config.yaml not found.")
-        sys.exit(1)
-        
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
+    if 'snakemake' in globals():
+        config = snakemake.config
+        out_flag = snakemake.output.flag if hasattr(snakemake.output, 'flag') else None
+    else:
+        config_path = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+        if not os.path.exists(config_path):
+            config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), config_path)
+            
+        if not os.path.exists(config_path):
+            print("Error: config.yaml not found.")
+            sys.exit(1)
+            
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        out_flag = None
         
     t = check_tools(config)
     e = check_ensembl()
@@ -181,10 +186,14 @@ def main():
     print("\n" + "="*40)
     if all([t, e, m, s]):
         print("RESULT: Pipeline configuration is valid and ready to run!")
+        if out_flag:
+            os.makedirs(os.path.dirname(out_flag), exist_ok=True)
+            with open(out_flag, 'w') as f:
+                f.write("OK\n")
     else:
         print("RESULT: Issues detected. Please fix the failures above.")
         sys.exit(1)
 
-if __name__ == "__main__":
+if __name__ == "__main__" or 'snakemake' in globals():
     main()
 

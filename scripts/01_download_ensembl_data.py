@@ -4,14 +4,16 @@ import requests
 from pathlib import Path
 
 # Load config
-config_path = "config.yaml"
-if not os.path.exists(config_path):
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
+if 'snakemake' in globals():
+    config = snakemake.config
+else:
+    config_path = "config.yaml"
+    if not os.path.exists(config_path):
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
 
-with open(config_path, "r") as f:
-    config = yaml.safe_load(f)
-
-VERSION = config.get("ensembl_version", "109")
+VERSION = config.get("ensembl_version", "115")
 SPECIES_CONFIG = config["species"]
 
 def get_ensembl_assembly(scientific_name):
