@@ -72,6 +72,10 @@ rule trees:
         f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz"
 
 # --- Core Pipeline Rules ---
+# Raw database paths (auto-downloaded)
+RAW_FASTAS_DIR = config["paths"].get("raw_fastas_dir", "input/DB/raw_fastas")
+RAW_GFFS_DIR = config["paths"].get("raw_gffs_dir", "input/DB/gff3")
+
 rule check_setup:
     input:
         metadata = config["paths"]["metadata"]
@@ -85,15 +89,15 @@ rule download_data:
         check = f"{OUTPUT_DIR}/.setup_checked"
     output:
         homologies = expand(config["paths"]["raw_homologies_dir"] + "/{species}.tsv.gz", species=SPECIES_LIST),
-        fastas = expand("input/DB/raw_fastas/{code}.fa.gz", code=SPECIES_CODES),
-        gffs = expand("input/DB/gff3/{code}.gff3.gz", code=SPECIES_CODES)
+        fastas = expand(RAW_FASTAS_DIR + "/{code}.fa.gz", code=SPECIES_CODES),
+        gffs = expand(RAW_GFFS_DIR + "/{code}.gff3.gz", code=SPECIES_CODES)
     script:
         "scripts/01_download_ensembl_data.py"
 
 rule prepare_inputs:
     input:
-        fastas = expand("input/DB/raw_fastas/{code}.fa.gz", code=SPECIES_CODES),
-        gffs = expand("input/DB/gff3/{code}.gff3.gz", code=SPECIES_CODES),
+        fastas = expand(RAW_FASTAS_DIR + "/{code}.fa.gz", code=SPECIES_CODES),
+        gffs = expand(RAW_GFFS_DIR + "/{code}.gff3.gz", code=SPECIES_CODES),
         transcripts = config["paths"].get("transcripts", config["paths"]["metadata"]),
         metadata = config["paths"]["metadata"]
     output:

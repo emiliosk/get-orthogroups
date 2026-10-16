@@ -97,6 +97,24 @@ def check_metadata(config):
             
         extra_info = f" [{', '.join(extras)}]" if extras else ""
         print(f"[OK] Metadata valid ({len(df)} rows, {n_unique_genes} unique genes, species: {species_list}){extra_info}")
+
+        # Check separate transcripts file if specified
+        trans_path = config['paths'].get('transcripts')
+        if trans_path and trans_path != path:
+            if not os.path.exists(trans_path):
+                print(f"[FAIL] Transcripts file not found: {trans_path}")
+                return False
+            tdf = pd.read_csv(trans_path)
+            t_col = 'ensembl_transcript_id' if 'ensembl_transcript_id' in tdf.columns else ('transcript_id' if 'transcript_id' in tdf.columns else None)
+            if not t_col:
+                print(f"[FAIL] Transcripts file missing 'ensembl_transcript_id' or 'transcript_id'. Found: {list(tdf.columns)}")
+                return False
+            canon_note = ""
+            if 'transcript_is_canonical' in tdf.columns:
+                n_can = tdf['transcript_is_canonical'].astype(str).str.strip().isin(['1', '1.0', 'True', 'true']).sum()
+                canon_note = f" ({n_can} flagged canonical)"
+            print(f"[OK] Canonical transcripts valid ({len(tdf)} records, {tdf[t_col].nunique()} unique transcripts){canon_note}")
+
         return True
     except Exception as e:
         print(f"[FAIL] Error reading metadata: {e}")

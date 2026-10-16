@@ -93,8 +93,8 @@ if __name__ == "__main__":
     if 'snakemake' in globals():
         main(
             input_transcripts = snakemake.input.transcripts,
-            raw_fasta_dir = "input/DB/raw_fastas",
-            raw_gff_dir = "input/DB/gff3",
+            raw_fasta_dir = snakemake.config["paths"].get("raw_fastas_dir", "input/DB/raw_fastas"),
+            raw_gff_dir = snakemake.config["paths"].get("raw_gffs_dir", "input/DB/gff3"),
             fasta_out_dir = snakemake.config["paths"]["fasta_dir"],
             coords_out_dir = snakemake.config["paths"]["genespace_coords"],
             species_config = snakemake.config["species"]
@@ -107,8 +107,8 @@ if __name__ == "__main__":
         input_file = config["paths"].get("transcripts", config["paths"].get("metadata", f"input/DB/ensembl_v{version}_multispecies_transcripts.csv"))
         main(
             input_transcripts = input_file,
-            raw_fasta_dir = "input/DB/raw_fastas",
-            raw_gff_dir = "input/DB/gff3",
+            raw_fasta_dir = config["paths"].get("raw_fastas_dir", "input/DB/raw_fastas"),
+            raw_gff_dir = config["paths"].get("raw_gffs_dir", "input/DB/gff3"),
             fasta_out_dir = config["paths"]["fasta_dir"],
             coords_out_dir = config["paths"]["genespace_coords"],
             species_config = config["species"]

@@ -1,0 +1,73 @@
+# =============================================================================
+# Ensembl 109 Test Pipeline Configuration
+# =============================================================================
+ensembl_version: "109"
+
+# Inline Species Tree (Tip labels MUST match species keys below)
+species_tree: "((((MACFA:1,HUMAN:1)1:1,(RATNO:1,MOUSE:1)1:1)1:1,(PIGXX:1,CANLF:1)1:1)1:1);"
+
+paths:
+  # ---------------------------------------------------------------------------
+  # 1. USER-PROVIDED INPUTS:
+  # Option A (Two separate files - default):
+  #   metadata:    table with protein-coding gene IDs & species
+  #   transcripts: table with canonical transcript IDs
+  #
+  # Option B (Unified single file):
+  #   If both are combined in one table (like target_gene_annotations.csv),
+  #   set both 'metadata' and 'transcripts' to the same file path.
+  # ---------------------------------------------------------------------------
+  metadata: "test_ensembl_109/input/gene_metadata/protein_coding_genes.csv"
+  transcripts: "test_ensembl_109/input/gene_metadata/canonical_transcripts.csv"
+
+  # ---------------------------------------------------------------------------
+  # 2. AUTO-MANAGED DATABASE & INTERMEDIATE DIRECTORIES (isolated for e109):
+  # ---------------------------------------------------------------------------
+  raw_homologies_dir: "test_ensembl_109/input/DB/ensembl_homologies_raw"
+  raw_fastas_dir: "test_ensembl_109/input/DB/raw_fastas"
+  raw_gffs_dir: "test_ensembl_109/input/DB/gff3"
+  genespace_coords: "test_ensembl_109/input/DB/genespace_coords"
+  fasta_dir: "test_ensembl_109/input/DB/canonical_transcripts"
+
+output_dir: "test_ensembl_109/output"
+symbol_reference_species: "HUMAN"
+compute_trees: false
+
+# Curation and Rescue Parameters (v0.2)
+curation:
+  manual_file: ""  # Optional path to curation CSV (e.g. test_ensembl_109/input/manual_curation.csv)
+
+rescue:
+  generate_suggestions: false      # Set true to run rescue stage during default 'snakemake'
+  max_iterations: 3                # Iterative passes (default: 3, auto-converges)
+  min_alignment_score: 50.0        # BLOSUM62 score floor for auto-approval
+  min_consensus_species_unnamed: 2 # Minimum reference species for unannotated transcripts
+  max_cassette_size: 5             # Maximum intervening genes between flanking anchors
+
+# Tree building & species-tree reconciliation parameters (Rule 7)
+trees:
+  contraction_threshold: 0.8
+  reroot: true
+
+species:
+  HUMAN:
+    scientific_name: "homo_sapiens"
+    assembly: "GRCh38"
+  MOUSE:
+    scientific_name: "mus_musculus"
+    assembly: "GRCm39"
+  MACFA:
+    scientific_name: "macaca_fascicularis"
+    assembly: "Macaca_fascicularis_6.0"
+  RATNO:
+    scientific_name: "rattus_norvegicus"
+    assembly: "mRatBN7.2"
+  PIGXX:
+    scientific_name: "sus_scrofa"
+    assembly: "Sscrofa11.1"
+  CANLF:
+    scientific_name: "canis_lupus_familiaris"
+    assembly: "ROS_Cfam_1.0"
+
+synteny:
+  goc_window: 5

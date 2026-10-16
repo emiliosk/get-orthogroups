@@ -102,11 +102,11 @@ def main():
         download_file(url, str(dest))
 
     # 2. Download Protein FASTAs (raw)
-    fasta_raw_dir = Path("input/DB/raw_fastas")
+    fasta_raw_dir = Path(config["paths"].get("raw_fastas_dir", "input/DB/raw_fastas"))
     fasta_raw_dir.mkdir(parents=True, exist_ok=True)
     
     # 3. Download GFF3 (for coordinates)
-    gff_dir = Path("input/DB/gff3")
+    gff_dir = Path(config["paths"].get("raw_gffs_dir", "input/DB/gff3"))
     gff_dir.mkdir(parents=True, exist_ok=True)
 
     for sp_key, info in SPECIES_CONFIG.items():
