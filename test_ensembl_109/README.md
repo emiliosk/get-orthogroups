@@ -40,13 +40,13 @@ paths:
 
 ## 2. Ensembl 109 Assembly Specifications
 
-In Ensembl Release 109, the genome assemblies are:
+In Ensembl Release 109, the genome assemblies for the 5 target species are:
 * **HUMAN**: `GRCh38`
 * **MOUSE**: `GRCm39`
 * **MACFA**: `Macaca_fascicularis_6.0`
 * **RATNO**: `mRatBN7.2` *(Note: In e115 this was GRCr8; in e109 it is mRatBN7.2)*
 * **PIGXX**: `Sscrofa11.1`
-* **CANLF**: `ROS_Cfam_1.0`
+*(Dog / CANLF is omitted from this test)*
 
 ---
 

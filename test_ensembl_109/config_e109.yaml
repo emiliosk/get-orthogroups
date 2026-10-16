@@ -4,7 +4,7 @@
 ensembl_version: "109"
 
 # Inline Species Tree (Tip labels MUST match species keys below)
-species_tree: "((((MACFA:1,HUMAN:1)1:1,(RATNO:1,MOUSE:1)1:1)1:1,(PIGXX:1,CANLF:1)1:1)1:1);"
+species_tree: "(((MACFA:1,HUMAN:1)1:1,(MOUSE:1,RATNO:1)1:1)1:1,PIGXX:1);"
 
 paths:
   # ---------------------------------------------------------------------------
@@ -65,9 +65,10 @@ species:
   PIGXX:
     scientific_name: "sus_scrofa"
     assembly: "Sscrofa11.1"
-  CANLF:
-    scientific_name: "canis_lupus_familiaris"
-    assembly: "ROS_Cfam_1.0"
+  # CANLF (Dog) omitted for this test:
+  # CANLF:
+  #   scientific_name: "canis_lupus_familiaris"
+  #   assembly: "ROS_Cfam_1.0"
 
 synteny:
   goc_window: 5
