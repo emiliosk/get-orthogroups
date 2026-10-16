@@ -86,11 +86,11 @@ def run_singleton_rescue():
         try:
             score = aligner.score(seq1, seq2)
             a = next(aligner.align(seq1, seq2))
-            lines = str(a).strip().split('\n')
-            matches = lines[1].count('|') if len(lines) >= 3 else 0
-            aligned_len = len(lines[0]) if len(lines) >= 3 else max(len(seq1), len(seq2))
-            id_pct = round((matches / aligned_len) * 100, 2)
-            cov_pct = round((min(len(seq1), len(seq2)) / max(len(seq1), len(seq2))) * 100, 2)
+            identities = a.counts().identities
+            max_len = max(len(seq1), len(seq2))
+            min_len = min(len(seq1), len(seq2))
+            id_pct = round((identities / max_len) * 100, 2) if max_len > 0 else 0.0
+            cov_pct = round((min_len / max_len) * 100, 2) if max_len > 0 else 0.0
             return round(score, 1), id_pct, cov_pct
         except Exception:
             return 0.0, 0.0, 0.0
