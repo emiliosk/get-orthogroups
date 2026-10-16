@@ -18,7 +18,7 @@ paths:
   #   set both 'metadata' and 'transcripts' to the same file path.
   # ---------------------------------------------------------------------------
   metadata: "test_ensembl_109/input/gene_metadata/protein_coding_genes.csv"
-  transcripts: "test_ensembl_109/input/gene_metadata/canonical_transcripts.csv"
+  transcripts: "test_ensembl_109/input/gene_metadata/ensembl_v109_multispecies_transcripts.csv"
 
   # ---------------------------------------------------------------------------
   # 2. AUTO-MANAGED DATABASE & INTERMEDIATE DIRECTORIES (isolated for e109):

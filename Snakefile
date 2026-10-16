@@ -1,5 +1,17 @@
 configfile: "config.yaml"
 import os
+import sys
+import yaml
+
+# Override species if a custom configfile is passed via CLI
+for i, arg in enumerate(sys.argv):
+    if arg in ("--configfile", "--configfiles") and i + 1 < len(sys.argv):
+        cf_path = sys.argv[i + 1]
+        if os.path.exists(cf_path):
+            with open(cf_path, 'r') as f:
+                cf_dict = yaml.safe_load(f)
+                if cf_dict and "species" in cf_dict:
+                    config["species"] = cf_dict["species"]
 
 # Target variables from config
 VERSION = config.get("ensembl_version", "109")
@@ -84,11 +96,14 @@ rule check_setup:
     script:
         "preprocessing/00_check_pipeline_setup.py"
 
-rule download_data:
-    input:
-        check = f"{OUTPUT_DIR}/.setup_checked"
+rule download_homologies:
     output:
-        homologies = expand(config["paths"]["raw_homologies_dir"] + "/{species}.tsv.gz", species=SPECIES_LIST),
+        homologies = expand(config["paths"]["raw_homologies_dir"] + "/{species}.tsv.gz", species=SPECIES_LIST)
+    script:
+        "scripts/01_download_ensembl_data.py"
+
+rule download_genomic_data:
+    output:
         fastas = expand(RAW_FASTAS_DIR + "/{code}.fa.gz", code=SPECIES_CODES),
         gffs = expand(RAW_GFFS_DIR + "/{code}.gff3.gz", code=SPECIES_CODES)
     script:

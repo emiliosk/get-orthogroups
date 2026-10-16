@@ -91,46 +91,53 @@ def format_ensembl_folder(sci_name):
     return parts[0].capitalize() + ('_' + '_'.join(parts[1:]) if len(parts) > 1 else '')
 
 def main():
+    download_hom = True
+    download_gen = True
+    if 'snakemake' in globals():
+        download_hom = hasattr(snakemake.output, 'homologies')
+        download_gen = hasattr(snakemake.output, 'fastas') or hasattr(snakemake.output, 'gffs')
+
     # 1. Download Homologies
-    homology_dir = Path(config["paths"]["raw_homologies_dir"])
-    homology_dir.mkdir(parents=True, exist_ok=True)
-    
-    for sp_key, info in SPECIES_CONFIG.items():
-        sci_name = info["scientific_name"]
-        url = f"https://ftp.ensembl.org/pub/release-{VERSION}/tsv/ensembl-compara/homologies/{sci_name}/Compara.{VERSION}.protein_default.homologies.tsv.gz"
-        dest = homology_dir / f"{sci_name}.tsv.gz"
-        download_file(url, str(dest))
-
-    # 2. Download Protein FASTAs (raw)
-    fasta_raw_dir = Path(config["paths"].get("raw_fastas_dir", "input/DB/raw_fastas"))
-    fasta_raw_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 3. Download GFF3 (for coordinates)
-    gff_dir = Path(config["paths"].get("raw_gffs_dir", "input/DB/gff3"))
-    gff_dir.mkdir(parents=True, exist_ok=True)
-
-    for sp_key, info in SPECIES_CONFIG.items():
-        sci_name = info["scientific_name"]
-        folder = sci_name.lower()
-        formatted_sp = format_ensembl_folder(sci_name)
+    if download_hom:
+        homology_dir = Path(config["paths"]["raw_homologies_dir"])
+        homology_dir.mkdir(parents=True, exist_ok=True)
         
-        assembly = info.get("assembly")
-        if not assembly:
-            assembly = get_ensembl_assembly(sci_name)
+        for sp_key, info in SPECIES_CONFIG.items():
+            sci_name = info["scientific_name"]
+            url = f"https://ftp.ensembl.org/pub/release-{VERSION}/tsv/ensembl-compara/homologies/{sci_name}/Compara.{VERSION}.protein_default.homologies.tsv.gz"
+            dest = homology_dir / f"{sci_name}.tsv.gz"
+            download_file(url, str(dest))
+
+    # 2. Download Protein FASTAs (raw) and GFF3 (for coordinates)
+    if download_gen:
+        fasta_raw_dir = Path(config["paths"].get("raw_fastas_dir", "input/DB/raw_fastas"))
+        fasta_raw_dir.mkdir(parents=True, exist_ok=True)
+        
+        gff_dir = Path(config["paths"].get("raw_gffs_dir", "input/DB/gff3"))
+        gff_dir.mkdir(parents=True, exist_ok=True)
+
+        for sp_key, info in SPECIES_CONFIG.items():
+            sci_name = info["scientific_name"]
+            folder = sci_name.lower()
+            formatted_sp = format_ensembl_folder(sci_name)
+            
+            assembly = info.get("assembly")
             if not assembly:
-                raise ValueError(f"Could not determine assembly for {sp_key} ({sci_name}). Please add 'assembly: <NAME>' to config.yaml.")
-        
-        prefix = f"{formatted_sp}.{assembly}"
-        
-        # FASTA download
-        fasta_url = f"https://ftp.ensembl.org/pub/release-{VERSION}/fasta/{folder}/pep/{prefix}.pep.all.fa.gz"
-        dest_fasta = fasta_raw_dir / f"{sp_key}.fa.gz"
-        download_file(fasta_url, str(dest_fasta))
+                assembly = get_ensembl_assembly(sci_name)
+                if not assembly:
+                    raise ValueError(f"Could not determine assembly for {sp_key} ({sci_name}). Please add 'assembly: <NAME>' to config.yaml.")
+            
+            prefix = f"{formatted_sp}.{assembly}"
+            
+            # FASTA download
+            fasta_url = f"https://ftp.ensembl.org/pub/release-{VERSION}/fasta/{folder}/pep/{prefix}.pep.all.fa.gz"
+            dest_fasta = fasta_raw_dir / f"{sp_key}.fa.gz"
+            download_file(fasta_url, str(dest_fasta))
 
-        # GFF3 download
-        gff_url = f"https://ftp.ensembl.org/pub/release-{VERSION}/gff3/{folder}/{prefix}.{VERSION}.gff3.gz"
-        dest_gff = gff_dir / f"{sp_key}.gff3.gz"
-        download_file(gff_url, str(dest_gff))
+            # GFF3 download
+            gff_url = f"https://ftp.ensembl.org/pub/release-{VERSION}/gff3/{folder}/{prefix}.{VERSION}.gff3.gz"
+            dest_gff = gff_dir / f"{sp_key}.gff3.gz"
+            download_file(gff_url, str(dest_gff))
 
 if __name__ == "__main__":
     main()
