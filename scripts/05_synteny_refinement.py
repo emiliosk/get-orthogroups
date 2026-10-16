@@ -20,8 +20,12 @@ def load_coords(master, coords_dir, metadata_path):
     p2g = {}
     if 'peptide_id' in meta.columns:
         p2g.update(meta.dropna(subset=['peptide_id']).drop_duplicates('peptide_id').set_index('peptide_id')['ensembl_id'].to_dict())
+        for p, g in zip(meta['peptide_id'].dropna(), meta['ensembl_id'].dropna()):
+            p2g[str(p).split('.')[0]] = str(g).split('.')[0]
     if 'peptide_id_version' in meta.columns:
         p2g.update(meta.dropna(subset=['peptide_id_version']).drop_duplicates('peptide_id_version').set_index('peptide_id_version')['ensembl_id'].to_dict())
+        for p, g in zip(meta['peptide_id_version'].dropna(), meta['ensembl_id'].dropna()):
+            p2g[str(p).split('.')[0]] = str(g).split('.')[0]
     
     gene_to_og = master.set_index('ensembl_id')['ens_orthogroup_id'].to_dict()
     gene_to_hq_og = master.set_index('ensembl_id')['ens_hqorthogroup_id'].to_dict()
@@ -36,6 +40,9 @@ def load_coords(master, coords_dir, metadata_path):
             
             coords['chr'] = coords['chr'].astype(str).str.replace(r'\.0$', '', regex=True)
             coords['g_id'] = coords['p_id'].map(p2g)
+            missing = coords['g_id'].isna()
+            if missing.any():
+                coords.loc[missing, 'g_id'] = coords.loc[missing, 'p_id'].astype(str).str.split('.').str[0].map(p2g)
             coords['og'] = coords['g_id'].map(gene_to_og)
             coords['hq_og'] = coords['g_id'].map(gene_to_hq_og)
             

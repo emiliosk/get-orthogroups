@@ -98,7 +98,9 @@ def run_singleton_rescue():
     # 3. Load canonical peptides
     print(f"2. Loading canonical peptide FASTAs from {fasta_dir}...")
     gene_pattern = re.compile(r'gene:([A-Za-z0-9_]+)')
+    strand_pattern = re.compile(r':(-?1)\s+gene:')
     peptides = {}
+    fasta_strands = {}
     for sp in species_list:
         fa_path = os.path.join(fasta_dir, f"{sp}.fa")
         sp_peps = {}
@@ -108,6 +110,9 @@ def run_singleton_rescue():
                 if m:
                     gid = m.group(1).split('.')[0]
                     sp_peps[gid] = str(rec.seq)
+                    sm = strand_pattern.search(rec.description)
+                    if sm:
+                        fasta_strands[gid] = '+' if sm.group(1) == '1' else '-'
         peptides[sp] = sp_peps
         print(f"   - {sp}: {len(sp_peps)} peptides loaded.")
 
@@ -116,18 +121,40 @@ def run_singleton_rescue():
     clusters = pd.read_csv(baseline_path, sep='\t')
     meta = pd.read_csv(meta_path)
     
-    # Try loading precomputed strands if available, else default to '+'
+    gene_col = 'ensembl_gene_id' if 'ensembl_gene_id' in meta.columns else 'ensembl_id'
+    meta['clean_gene_id'] = meta[gene_col].astype(str).str.strip().str.split('.').str[0]
+
+    # Try loading precomputed strands if available, else fasta strands, else default to '+'
     gene_to_strand = {}
     strand_cache = "test/cache/gene_strands.tsv"
     if os.path.exists(strand_cache):
         strands_df = pd.read_csv(strand_cache, sep='\t')
         gene_to_strand = dict(zip(strands_df['gene_id'], strands_df['strand']))
     elif 'strand' in meta.columns:
-        gene_to_strand = dict(zip(meta['gene_id'], meta['strand']))
-        
-    pep_col = 'peptide_id' if 'peptide_id' in meta.columns else None
-    gene_col = 'ensembl_gene_id' if 'ensembl_gene_id' in meta.columns else 'ensembl_id'
-    pep_to_gene = dict(zip(meta[pep_col], meta[gene_col]))
+        gene_to_strand = dict(zip(meta['clean_gene_id'], meta['strand']))
+    for gid, st in fasta_strands.items():
+        if gid not in gene_to_strand:
+            gene_to_strand[gid] = st
+
+    pep_to_gene = {}
+    if 'peptide_id' in meta.columns:
+        df_p = meta.dropna(subset=['peptide_id'])
+        for p, g in zip(df_p['peptide_id'], df_p['clean_gene_id']):
+            p_str = str(p).strip()
+            pep_to_gene[p_str] = g
+            pep_to_gene[p_str.split('.')[0]] = g
+
+    if 'peptide_id_version' in meta.columns:
+        df_pv = meta.dropna(subset=['peptide_id_version'])
+        for p, g in zip(df_pv['peptide_id_version'], df_pv['clean_gene_id']):
+            p_str = str(p).strip()
+            pep_to_gene[p_str] = g
+            pep_to_gene[p_str.split('.')[0]] = g
+
+    for g in meta['clean_gene_id'].dropna():
+        g_str = str(g).strip()
+        pep_to_gene[g_str] = g
+        pep_to_gene[g_str.split('.')[0]] = g
 
     # 5. Load coordinates for all configured species
     print("4. Loading genomic coordinates across all species...")
@@ -138,7 +165,11 @@ def run_singleton_rescue():
             print(f"   [WARNING] Missing coordinate file: {bed_path}")
             continue
         df = pd.read_csv(bed_path, sep='\t', header=None, names=['chr', 'start', 'end', 'pep_id'])
-        df['gene_id'] = df['pep_id'].map(pep_to_gene)
+        df['pep_id_str'] = df['pep_id'].astype(str).str.strip()
+        df['gene_id'] = df['pep_id_str'].map(pep_to_gene)
+        mask_missing = df['gene_id'].isna()
+        if mask_missing.any():
+            df.loc[mask_missing, 'gene_id'] = df.loc[mask_missing, 'pep_id_str'].str.split('.').str[0].map(pep_to_gene)
         df = df.dropna(subset=['gene_id']).drop_duplicates(subset=['gene_id'])
         df['chr'] = df['chr'].astype(str).str.replace(r'\.0$', '', regex=True)
         df['mid'] = (df['start'] + df['end']) / 2
@@ -586,16 +617,41 @@ def run_singleton_rescue():
     print("\n6. Exporting standardized deliverables...")
     
     # 1. rescued_genes_all.tsv
-    df_rescued = pd.DataFrame(all_rescued_records)
+    rescued_cols = [
+        'query_gene_id', 'query_species', 'query_symbol', 'query_locus',
+        'query_l2_anchor', 'query_l1_anchor', 'query_r1_anchor', 'query_r2_anchor',
+        'rescued_og', 'rescued_hq', 'ref_ortholog_id', 'ref_species', 'ref_symbol',
+        'ref_l2_anchor', 'ref_l1_anchor', 'ref_r1_anchor', 'ref_r2_anchor',
+        'active_cassette_used', 'supporting_species_count', 'supporting_species',
+        'boundary_status', 'alignment_score', 'seq_identity_pct', 'seq_coverage_pct',
+        'rescue_tier', 'iteration_rescued', 'decision'
+    ]
+    df_rescued = pd.DataFrame(all_rescued_records) if all_rescued_records else pd.DataFrame(columns=rescued_cols)
     df_rescued.to_csv(rescued_tsv, sep='\t', index=False)
     print(f"   - Saved {len(df_rescued)} clean rescues across {iteration} iterations to {rescued_tsv}")
 
     # 2. rescue_curation_candidates.csv
-    df_candidates = pd.DataFrame(all_candidates_records)
+    candidate_cols = [
+        'gene_id', 'species', 'gene_symbol', 'query_locus', 'query_peptide_len',
+        'boundary_status', 'query_l1_anchor', 'query_r1_anchor',
+        'synteny_og', 'synteny_target_symbol', 'synteny_ref_gene', 'synteny_supporting_species',
+        'synteny_align_score', 'synteny_identity_pct', 'synteny_coverage_pct',
+        'symbol_og', 'symbol_target_symbol', 'symbol_ref_gene',
+        'symbol_align_score', 'symbol_identity_pct', 'symbol_coverage_pct',
+        'conflict_type', 'recommended_action',
+        'suggested_target_og', 'suggested_target_gene', 'suggested_target_species', 'suggested_target_symbol',
+        'curator_notes'
+    ]
+    df_candidates = pd.DataFrame(all_candidates_records) if all_candidates_records else pd.DataFrame(columns=candidate_cols)
     df_candidates.to_csv(candidates_csv, index=False)
     print(f"   - Saved {len(df_candidates)} flagged candidates with rich context to {candidates_csv}")
 
     # 3. manual_curation_sample.csv (9 columns)
+    curation_cols = [
+        'gene_id', 'species', 'gene_symbol', 'target_gene_id',
+        'target_species', 'target_gene_symbol', 'target_orthogroup',
+        'curator_decision', 'curation_reason'
+    ]
     curation_rows = []
     for _, r in df_rescued.iterrows():
         curation_rows.append({
@@ -624,7 +680,7 @@ def run_singleton_rescue():
                 'curation_reason': f"Curated Addition: {r['conflict_type']}; Symbol & Sequence verified ({r['curator_notes']})"
             })
 
-    df_curation_sample = pd.DataFrame(curation_rows)
+    df_curation_sample = pd.DataFrame(curation_rows) if curation_rows else pd.DataFrame(columns=curation_cols)
     df_curation_sample.to_csv(curation_sample_csv, index=False)
     print(f"   - Saved streamlined {len(df_curation_sample)} proposed rescues (9 columns) to {curation_sample_csv}")
     print(f"\nStep 9 completed successfully in {round(time.time() - start_time, 2)} seconds.")
