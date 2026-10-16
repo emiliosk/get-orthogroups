@@ -35,7 +35,7 @@ compute_trees: false
 
 # Curation and Rescue Parameters (v0.2)
 curation:
-  manual_file: ""  # Optional path to curation CSV (e.g. test_ensembl_109/input/manual_curation.csv)
+  manual_file: "test_ensembl_109/input/manual_curation.csv"  # Curated high-confidence rescues
 
 rescue:
   generate_suggestions: false      # Set true to run rescue stage during default 'snakemake'
