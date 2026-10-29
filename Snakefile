@@ -40,7 +40,10 @@ if RESCUE_SUGGESTIONS:
 
 # Conditionally append tree computations
 if COMPUTE_TREES:
-    ALL_TARGETS.append(f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz")
+    ALL_TARGETS.extend([
+        f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz",
+        f"{OUTPUT_DIR}/MSA_Summary_Scores.tsv"
+    ])
 
 # --- Default Target Rule ---
 rule all:
@@ -199,7 +202,8 @@ rule compute_trees:
         master = f"{OUTPUT_DIR}/Consensus_Master.tsv",
         canonical_fastas = expand(config["paths"]["fasta_dir"] + "/{code}.fa", code=SPECIES_CODES)
     output:
-        tar = f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz"
+        tar = f"{OUTPUT_DIR}/Phylogenetic_Trees.tar.gz",
+        msa_scores = f"{OUTPUT_DIR}/MSA_Summary_Scores.tsv"
     threads:
         config.get("threads", 4)
     script:

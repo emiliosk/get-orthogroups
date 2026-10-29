@@ -72,10 +72,23 @@ def main():
         except Exception:
             pass
 
+    # MSA Conservation Stats Check
+    msa_scores_file = os.path.join(out_dir, "MSA_Summary_Scores.tsv")
+    if os.path.exists(msa_scores_file):
+        try:
+            df_msa = pd.read_csv(msa_scores_file, sep='\t')
+            lines.append("\n--- Multiple Sequence Alignment (MSA) Conservation ---")
+            lines.append(f"Total MSAs Evaluated: {len(df_msa):,}")
+            lines.append(f"  Mean Pairwise Identity (all OGs) : {df_msa['msa_mean_pid'].mean():.2f}%")
+            lines.append(f"  Mean Invariant Sites (all OGs)   : {df_msa['msa_conserved_sites_pct'].mean():.2f}%")
+            lines.append(f"  Mean Alignment Gap Percentage    : {df_msa['msa_gap_pct'].mean():.2f}%")
+        except Exception:
+            pass
+
     # Phylogenetic Trees Check
     if tree_tar and os.path.exists(tree_tar):
         size_mb = os.path.getsize(tree_tar) / (1024 * 1024)
-        lines.append(f"--- Phylogenetic Trees & MSAs: Generated ({size_mb:.2f} MB) ---")
+        lines.append(f"\n--- Phylogenetic Trees & MSAs: Generated ({size_mb:.2f} MB) ---")
 
     lines.append("\n" + "="*40)
     

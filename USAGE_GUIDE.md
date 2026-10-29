@@ -15,6 +15,7 @@ The pipeline organizes input files into **Required Configurations**, **Auto-Gene
 | `config.yaml` | YAML | **Yes** | Master configuration file (version, species list, tool paths, parameters). |
 | `paths.metadata` (e.g. `input/gene_metadata/...`) | CSV | **Yes** | **Unified Gene & Transcript Metadata** (see schema below). Defines target genes, canonical transcripts, and peptide mappings. |
 | `species_tree` (in `config.yaml`) | Newick | **Yes** | Species tree defined directly inline as a Newick string (or path to a `.nwk` file). **Tip labels MUST match species keys** in `config.yaml`. |
+| `curation.manual_file` (in `config.yaml`) | CSV | Optional | Curated high-confidence rescue whitelist (e.g. `input/manual_curation.csv`) to inject into Ensembl transitivity clustering. |
 
 * **Unified Metadata Table Schema** (`paths.metadata`):
   | Column | Required | Description |
@@ -121,7 +122,56 @@ The pipeline computes multiple sequence alignments with MAFFT and reconciled phy
 * **Outputs**:
   MSAs are saved in `Phylogenetic_Trees/MSAs/` and reconciled Newick trees in `Phylogenetic_Trees/Gene_Trees/`, bundled into `Phylogenetic_Trees.tar.gz`.
 
-## 4. Validation & Diagnostics
+## 4. Orthology Curation & Singleton Rescue (v0.2)
+
+The v0.2 release introduces an automated micro-synteny and sequence-based rescue engine to recover true orthologs dropped by Ensembl pairwise heuristics.
+
+### Configuration (`config.yaml`)
+
+```yaml
+curation:
+  manual_file: "input/manual_curation.csv"  # Curated whitelist to inject into transitivity
+
+rescue:
+  generate_suggestions: false      # Set true to run rescue stage during default snakemake
+  max_iterations: 3                # Iterative passes (default: 3, auto-converging)
+  min_alignment_score: 50.0        # BLOSUM62 alignment score threshold
+  min_consensus_species_unnamed: 2 # Min reference species for unannotated transcripts
+  max_cassette_size: 5             # Max intervening genes between flanking anchors
+```
+
+### Running Singleton Rescue
+
+You can generate rescue suggestions independently without re-running earlier steps:
+
+```bash
+# Via Snakemake:
+snakemake --cores 8 --allowed-rules run_singleton_rescue -- ensembl_pipeline_output/rescue/manual_curation_sample.csv
+
+# Or directly via CLI:
+python scripts/09_singleton_rescue.py
+```
+
+### Generated Rescue Deliverables
+
+The rescue stage writes outputs to `output/rescue/`:
+1. `rescued_genes_all.tsv`: Detailed audit log listing all evaluated cassettes, flanking anchor IDs, relative orientations, and BLOSUM62 scores.
+2. `rescue_curation_candidates.csv`: Comprehensive 28-column diagnostic review table.
+3. `manual_curation_sample.csv`: Ready-to-use proposal table formatted for curation.
+
+### Reviewing & Ingesting Curations
+
+1. Copy `output/rescue/manual_curation_sample.csv` to `input/manual_curation.csv`.
+2. Inspect the proposed links. Filter out or reject dubious candidates:
+   * **Conjoined / Read-Through Chimeric Transcripts**: Flag transcripts that combine two adjacent genes (e.g. *TMED7-TICAM2*, *EPPIN-WFDC6*, *RPL17-C18orf32*).
+   * **Low-Identity Fragments**: Exclude fragments with questionable alignment scores.
+3. Run the standard pipeline:
+   ```bash
+   snakemake --cores 8
+   ```
+   Snakemake will automatically detect `input/manual_curation.csv` (or the path defined in `curation.manual_file`), ingest the vetted orthology edges directly into `ensembl_transitivity`, and propagate them into `Consensus_Master.tsv` and all pairwise tables in `pairwise_tables/`.
+
+## 5. Validation & Diagnostics
 
 ### Pre-flight Setup Check
 Before starting a long run, verify your tools, species tree, and API connectivity:
@@ -137,7 +187,7 @@ python scripts/08_generate_summary_stats.py
 ```
 This provides orthogroup counts by cardinality (1to1, multi-copy) and species coverage statistics.
 
-## 5. Troubleshooting "Incomplete Files"
+## 6. Troubleshooting "Incomplete Files"
 
 If a download is interrupted, Snakemake might flag files as incomplete. To fix:
 ```bash
@@ -146,7 +196,7 @@ snakemake --unlock
 snakemake --rerun-incomplete
 ```
 
-## 6. Manual Preprocessing
+## 7. Manual Preprocessing
 
 If you need to run the FASTA filtering or Coordinate extraction manually:
 ```bash

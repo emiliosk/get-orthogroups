@@ -27,6 +27,12 @@ The workflow is configurable for arbitrary species sets and Ensembl releases.
     3. **Custom Local Synteny** (`atlas_goc_score_pairwise`) — *[Custom Pipeline Metric]*: Set-based Jaccard similarity across the $\pm 5$ gene chromosome-bounded neighborhood.
     4. **Reciprocal Sequence Identity** (`min(ens_identity, ens_homology_identity)`) — *[Ensembl Compara]*: Minimum reciprocal protein sequence identity.
     5. **Whole Genome Alignment Coverage** (`ens_wga_coverage`) — *[Ensembl Compara]*: Depth of whole-genome sequence alignment coverage.
+* **Iterative Micro-Synteny & Sequence Rescue Engine (v0.2)**:
+  * Species-agnostic engine that identifies unassigned "singleton" genes dropped by Ensembl Compara heuristics.
+  * Employs $\pm 2$ conserved macro-anchors ($L_2, L_1, R_1, R_2$) with relative strand polarity matching to detect micro-synteny cassettes.
+  * Validates sequence homology using exact dynamic programming (**Needleman-Wunsch / BLOSUM62**).
+  * Executes multi-round anchor chaining (`max_iterations: 3`) to unlock adjacent singletons across iterations.
+  * Supports a human-in-the-loop curation whitelist (`manual_curation.csv`) that seamlessly injects vetted edges into the transitivity graph.
 * **Unified Metadata Input**:
   * Driven by a single user-provided CSV table (`paths.metadata`) specifying gene identifiers, canonical transcript annotations, and peptide mappings across all target species.
 * **Automated Data Retrieval**:
@@ -60,7 +66,8 @@ get-orthogroups/
 │   ├── 05_synteny_refinement.py
 │   ├── 06_finalize_tables.py
 │   ├── 07_batch_compute_trees.py
-│   └── 08_generate_summary_stats.py
+│   ├── 08_generate_summary_stats.py
+│   └── 09_singleton_rescue.py
 ├── README.md                     # Main repository overview (this document)
 ├── USAGE_GUIDE.md                # Guide for upgrading Ensembl or adding species
 ├── METHODS_PIPELINE.md           # Methodological and theoretical documentation

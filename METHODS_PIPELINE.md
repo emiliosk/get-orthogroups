@@ -41,6 +41,7 @@ In addition to the master consensus, the pipeline produces enriched pairwise ort
 ### Atlas Local Metrics (Informational)
 - **`atlas_goc_score_pairwise`**: Local Jaccard similarity of the +/- 5 gene neighborhood using Standard labels.
 - **`atlas_hq_goc_score_pairwise`**: Local Jaccard similarity of the neighborhood using High-Confidence labels.
+- **`atlas_msa_pairwise_identity`**: Direct pairwise protein sequence identity (%) calculated from MAFFT canonical peptide multiple sequence alignment.
 
 ---
 
@@ -72,7 +73,35 @@ This ensures that `OG_00001` will always refer to the same set of genes, even if
 
 ---
 
-## 6. Phylogenetic Reconstruction & Species-Tree Reconciliation
+## 6. Iterative Micro-Synteny & Sequence-Based Singleton Rescue Engine (v0.2)
+
+Ensembl Compara occasionally leaves true orthologs unassigned as isolated "singletons" due to assembly gaps, strict heuristic cutoffs, or missing pairwise calls between specific species pairs. The pipeline provides a 100% species-agnostic rescue engine ([`scripts/09_singleton_rescue.py`](file:///Users/emilioskarwan/Documents/SciLifeDrive/get-orthogroups/scripts/09_singleton_rescue.py)) to recover these missing links:
+
+### 1. Micro-Synteny Cassette Detection
+* For every singleton gene, the engine identifies flanking conserved **macro-anchors** ($L_2, L_1$ upstream and $R_1, R_2$ downstream) within a configurable cassette window (`max_cassette_size: 5`).
+* These anchors must belong to established orthogroups shared with the candidate target species.
+* **Relative Strand Polarity**: The engine verifies that the candidate singleton and its flanking anchors preserve ancestral chromosomal orientation relative to the target species.
+
+### 2. Dynamic Programming Sequence Verification (`Needleman-Wunsch / BLOSUM62`)
+* Micro-synteny alone cannot distinguish true orthologous genes from non-homologous gene insertions or retrotranspositions.
+* The engine aligns the candidate protein against the canonical peptide of the missing species in the candidate orthogroup using exact dynamic programming (**Needleman-Wunsch global alignment with the BLOSUM62 matrix**).
+* Candidates must pass a score threshold (`min_alignment_score: 50.0`) to confirm sequence homology.
+
+### 3. Iterative Anchor Chaining
+* The rescue process runs across multiple iterations (`max_iterations: 3`).
+* **Chaining mechanism**: When a singleton $A$ is successfully rescued in iteration 1, it becomes a validated flanking anchor in iteration 2, unlocking adjacent singletons in dense syntenic blocks until graph convergence.
+
+### 4. Human-in-the-Loop Curation Loop
+To prevent erroneous merges, proposed rescues are exported to transparent audit tables:
+* `rescued_genes_all.tsv`: Complete audit log with flanking anchor context and scores.
+* `rescue_curation_candidates.csv`: Comprehensive diagnostic review table.
+* `manual_curation_sample.csv`: Pre-formatted proposal table for human review.
+
+Users can curate and filter candidates (e.g., removing conjoined read-through chimeric transcripts) into `manual_curation.csv`. When provided, these validated edges are ingested during Step 3 (`ensembl_transitivity`), seamlessly integrating rescued orthologs into both the transitivity network and final consensus tables.
+
+---
+
+## 7. Phylogenetic Reconstruction & Species-Tree Reconciliation
 
 For all multi-gene orthogroups ($\ge 2$ genes), the pipeline builds multiple sequence alignments and phylogenetic trees that integrate sequence evidence with species-tree reconciliation:
 
@@ -92,18 +121,19 @@ For all multi-gene orthogroups ($\ge 2$ genes), the pipeline builds multiple seq
 
 ---
 
-## 7. Automated Snakemake Workflow
+## 8. Automated Snakemake Workflow
 
 The pipeline is fully automated and handles the entire lifecycle:
 
 1.  **`download_data`**: Fetches raw TSV homologies, FASTAs, and GFF3 files directly from the Ensembl FTP.
 2.  **`prepare_inputs`**: Filters raw sequences to **canonical-only** FASTAs and extracts genomic coordinates from GFF3.
-3.  **`ensembl_transitivity`**: Constructs the all-vs-all dual networks (Standard & HQ) and extracts Connected Components.
-4.  **`build_consensus`**: Harmonizes IDs and prepares base pairwise tables.
-5.  **`synteny_refinement`**: Calculates local informational GOC scores and assigns cardinality status tags.
-6.  **`finalize_tables`**: Generates consensus symbols and produces the final `Consensus_Master.tsv`.
-7.  **`compute_trees`** (Optional): Builds MAFFT alignments and FastTree/Treerecs reconciled gene trees with rerooting and branch contraction.
-8.  **`generate_summary_stats`**: Compiles overall dataset metrics, species coverage, cardinality breakdowns, and outputs `Summary_Stats.md`.
+3.  **`ensembl_transitivity`**: Constructs the all-vs-all dual networks (Standard & HQ) and extracts Connected Components (ingesting curated rescue edges if provided).
+4.  **`run_singleton_rescue`** (Optional/Staged): Evaluates micro-synteny cassettes and BLOSUM62 sequence alignments to produce rescue proposals.
+5.  **`build_consensus`**: Harmonizes IDs and prepares base pairwise tables.
+6.  **`synteny_refinement`**: Calculates local informational GOC scores and assigns cardinality status tags.
+7.  **`finalize_tables`**: Generates consensus symbols and produces the final `Consensus_Master.tsv`.
+8.  **`compute_trees`** (Optional): Builds MAFFT alignments and FastTree/Treerecs reconciled gene trees with rerooting and branch contraction.
+9.  **`generate_summary_stats`**: Compiles overall dataset metrics, species coverage, cardinality breakdowns, and outputs `Summary_Stats.md`.
 
 ---
 

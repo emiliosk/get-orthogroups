@@ -11,25 +11,26 @@ input/DB/canonical_transcripts/
 input/DB/genespace_coords/
 input/DB/ensembl_homologies_raw/
 example/input/DB/
-test_ensembl_109/input/DB/
 sample_plots/
 final_samples/
 # Large Production Outputs
 ensembl_pipeline_output/
 example/output_example/
-test_ensembl_109/output/
 # Phylogenetic_Trees.tar.gz (Removed from ignore to allow GitHub upload)
 
 # Logs
 *.log
 slurm-*.out
 
+# Test directories and files
+test*
+
 # Local Plotting & Development Scripts (Not part of package)
 local_plotting/
 paper_methods/
 updates_to_do/
-test/
 
-# OS specific
+# OS specific & local notes
 .DS_Store
 Thumbs.db
+*.pages

@@ -7,6 +7,7 @@ import time
 import tarfile
 import sys
 import yaml
+import glob
 
 def init_worker(fasta_dir, species_list):
     """Initializer for each worker process to load sequence data into memory."""
@@ -37,6 +38,72 @@ def init_worker(fasta_dir, species_list):
                     current_seq.append(line.strip())
             if current_id: SEQ_DICT[current_id] = "".join(current_seq)
 
+def calc_msa_stats(aln_file):
+    """Calculates internal conservation metrics from an aligned FASTA file."""
+    records = []
+    with open(aln_file, 'r') as f:
+        cur_hdr, cur_seq = None, []
+        for line in f:
+            line = line.strip()
+            if line.startswith('>'):
+                if cur_hdr:
+                    records.append((cur_hdr, "".join(cur_seq)))
+                cur_hdr = line[1:].strip()
+                cur_seq = []
+            else:
+                cur_seq.append(line)
+        if cur_hdr:
+            records.append((cur_hdr, "".join(cur_seq)))
+
+    n = len(records)
+    if n == 0:
+        return None
+    L = len(records[0][1])
+    seqs = [r[1] for r in records]
+
+    identical_cols = 0
+    total_gaps = 0
+    for col in range(L):
+        chars = [s[col].upper() for s in seqs]
+        total_gaps += chars.count('-')
+        if len(set(chars)) == 1 and chars[0] != '-':
+            identical_cols += 1
+
+    conserved_pct = round((identical_cols / L) * 100, 2) if L > 0 else 0.0
+    gap_pct = round((total_gaps / (n * L)) * 100, 2) if (n * L) > 0 else 0.0
+
+    pair_identities = []
+    pair_pids = {}
+    for i in range(n):
+        h1 = records[i][0]
+        g1 = h1.split('_', 1)[1] if '_' in h1 else h1
+        for j in range(i + 1, n):
+            h2 = records[j][0]
+            g2 = h2.split('_', 1)[1] if '_' in h2 else h2
+            s1, s2 = seqs[i], seqs[j]
+            matches = 0
+            valid = 0
+            for c1, c2 in zip(s1, s2):
+                if c1 != '-' or c2 != '-':
+                    valid += 1
+                    if c1.upper() == c2.upper() and c1 != '-':
+                        matches += 1
+            pid = round(matches / valid * 100, 2) if valid > 0 else 0.0
+            pair_identities.append(pid)
+            pair_pids[(g1, g2)] = pid
+            pair_pids[(g2, g1)] = pid
+
+    mean_pid = round(sum(pair_identities) / len(pair_identities), 2) if pair_identities else 0.0
+
+    stats = {
+        'n_seqs': n,
+        'msa_aln_length': L,
+        'msa_mean_pid': mean_pid,
+        'msa_conserved_sites_pct': conserved_pct,
+        'msa_gap_pct': gap_pct
+    }
+    return stats, pair_pids
+
 def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fasttree_bin, species_tree, treerecs_bin, contraction_threshold=0.8, reroot=True):
     """Worker function for a single orthogroup."""
     group_tmp = os.path.join(tmp_dir, group_id)
@@ -58,7 +125,7 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
                     found_genes.append(gid)
         
         if len(found_genes) < 2:
-            return (False, f"Fewer than 2 sequences found ({len(found_genes)})")
+            return (False, f"Fewer than 2 sequences found ({len(found_genes)})", None, None)
             
         # 2. Align with MAFFT (--anysymbol enables selenocysteine 'U' & non-standard residues)
         with open(aln_path, 'w') as out_f:
@@ -71,12 +138,15 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
             if res_mafft.returncode != 0:
                 if os.path.exists(aln_path):
                     os.remove(aln_path)
-                return (False, f"MAFFT error: {res_mafft.stderr.strip()}")
+                return (False, f"MAFFT error: {res_mafft.stderr.strip()}", None, None)
                 
         if not os.path.exists(aln_path) or os.path.getsize(aln_path) == 0:
             if os.path.exists(aln_path):
                 os.remove(aln_path)
-            return (False, "MAFFT produced empty alignment")
+            return (False, "MAFFT produced empty alignment", None, None)
+
+        # Compute internal MSA conservation metrics
+        msa_stats, pair_pids = calc_msa_stats(aln_path)
 
         # 3. Tree Inference & Species-Tree Reconciliation
         if len(found_genes) == 2:
@@ -86,7 +156,7 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
             sp2 = GENE_TO_SPECIES.get(g2, "UNKNOWN")
             with open(tree_path, 'w') as f:
                 f.write(f"({sp1}_{g1}:0.1,{sp2}_{g2}:0.1);\n")
-            return (True, None)
+            return (True, None, msa_stats, pair_pids)
 
         # 3+ genes: Infer ML tree with FastTree
         raw_tree = os.path.join(group_tmp, f"{group_id}_raw.nwk")
@@ -98,10 +168,10 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
                 text=True
             )
             if res_ft.returncode != 0:
-                return (False, f"FastTree error: {res_ft.stderr.strip()}")
+                return (False, f"FastTree error: {res_ft.stderr.strip()}", None, None)
 
         if not os.path.exists(raw_tree) or os.path.getsize(raw_tree) == 0:
-            return (False, "FastTree produced empty tree")
+            return (False, "FastTree produced empty tree", None, None)
 
         # Treerecs gene tree-species tree reconciliation
         rec_dir = os.path.join(group_tmp, "rec")
@@ -122,16 +192,19 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
         if contraction_threshold and str(contraction_threshold).lower() != "none":
             cmd.extend(["-t", str(contraction_threshold)])
 
-        res_tr = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        res_tree = os.path.join(rec_dir, f"{group_id}_raw.nwk_recs.nwk")
+        try:
+            res_tr = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            res_tree = os.path.join(rec_dir, f"{group_id}_raw.nwk_recs.nwk")
 
-        if res_tr.returncode == 0 and os.path.exists(res_tree) and os.path.getsize(res_tree) > 0:
-            shutil.copy(res_tree, tree_path)
-        else:
-            # Fallback to FastTree raw ML tree if Treerecs reconciliation fails
+            if res_tr.returncode == 0 and os.path.exists(res_tree) and os.path.getsize(res_tree) > 0:
+                shutil.copy(res_tree, tree_path)
+            else:
+                shutil.copy(raw_tree, tree_path)
+        except Exception:
+            # Fallback to FastTree raw ML tree if Treerecs reconciliation fails or is missing
             shutil.copy(raw_tree, tree_path)
 
-        return (True, None)
+        return (True, None, msa_stats, pair_pids)
 
     except Exception as e:
         # Clean up any partial/corrupt files
@@ -141,11 +214,78 @@ def process_group(group_id, gene_ids, msa_dir, tree_dir, tmp_dir, mafft_bin, fas
         if os.path.exists(tree_path) and os.path.getsize(tree_path) == 0:
             try: os.remove(tree_path)
             except: pass
-        return (False, str(e))
+        return (False, str(e), None, None)
         
     finally:
         if os.path.exists(group_tmp):
             shutil.rmtree(group_tmp, ignore_errors=True)
+
+def resolve_tool_bin(specified_bin, default_names):
+    """
+    Resolves binary path checking specified_bin, PATH, and Python bin directory.
+    """
+    if specified_bin and os.path.isabs(specified_bin) and os.path.exists(specified_bin):
+        return specified_bin
+    
+    candidates = [specified_bin] + default_names if specified_bin else default_names
+    for cand in candidates:
+        if cand:
+            which = shutil.which(cand)
+            if which:
+                return which
+                
+    py_dir = os.path.dirname(sys.executable)
+    for cand in candidates:
+        if cand:
+            local_cand = os.path.join(py_dir, cand)
+            if os.path.exists(local_cand) and os.access(local_cand, os.X_OK):
+                return local_cand
+                
+    return specified_bin or default_names[0]
+
+def annotate_pairwise_tables(pairwise_dir, pair_pids):
+    """
+    Annotates pairwise orthology tables with atlas_msa_pairwise_identity.
+    """
+    if not os.path.exists(pairwise_dir) or not pair_pids:
+        return
+    tsv_files = sorted(glob.glob(os.path.join(pairwise_dir, "*_pairwise_orthologs.tsv")))
+    if not tsv_files:
+        return
+    print(f"Annotating {len(tsv_files)} pairwise orthology tables with 'atlas_msa_pairwise_identity'...")
+    for fpath in tsv_files:
+        fname = os.path.basename(fpath)
+        parts = fname.replace("_pairwise_orthologs.tsv", "").split("_")
+        if len(parts) != 2:
+            continue
+        sp1, sp2 = parts[0], parts[1]
+        col1 = f"ensembl_id_{sp1}"
+        col2 = f"ensembl_id_{sp2}"
+        
+        df = pd.read_csv(fpath, sep='\t')
+        if col1 not in df.columns or col2 not in df.columns:
+            continue
+            
+        pids = []
+        for g1, g2 in zip(df[col1], df[col2]):
+            val = pair_pids.get((g1, g2))
+            if val is None:
+                val = pair_pids.get((g2, g1))
+            pids.append(val if val is not None else "")
+            
+        df['atlas_msa_pairwise_identity'] = pids
+        
+        # Position right after 'atlas_hq_goc_score_pairwise'
+        cols = list(df.columns)
+        if 'atlas_hq_goc_score_pairwise' in cols:
+            cols.remove('atlas_msa_pairwise_identity')
+            idx = cols.index('atlas_hq_goc_score_pairwise') + 1
+            cols.insert(idx, 'atlas_msa_pairwise_identity')
+            df = df[cols]
+            
+        df.to_csv(fpath, sep='\t', index=False)
+        matched_cnt = sum(1 for p in pids if p != "")
+        print(f"  [Annotated] {fname}: {matched_cnt}/{len(df)} rows assigned atlas_msa_pairwise_identity ({matched_cnt/len(df)*100:.1f}%)")
 
 def main():
     if 'snakemake' in globals():
@@ -154,11 +294,10 @@ def main():
         species_tree_val = snakemake.config.get('species_tree') or snakemake.config['paths'].get('species_tree')
         out_tar = snakemake.output.tar
         
-        mafft_bin = snakemake.config['tools'].get('mafft', 'mafft')
-        fasttree_bin = snakemake.config['tools'].get('fasttree', 'FastTree')
-        treerecs_bin = snakemake.config['tools'].get('treerecs', 'treerecs')
-        if not shutil.which(treerecs_bin) and os.environ.get("TREERECS_BIN"):
-            treerecs_bin = os.environ["TREERECS_BIN"]
+        tools_cfg = snakemake.config.get('tools', {})
+        mafft_bin = resolve_tool_bin(tools_cfg.get('mafft'), ['mafft'])
+        fasttree_bin = resolve_tool_bin(tools_cfg.get('fasttree'), ['FastTree', 'fasttree'])
+        treerecs_bin = resolve_tool_bin(tools_cfg.get('treerecs') or os.environ.get("TREERECS_BIN"), ['treerecs'])
             
         output_dir = snakemake.config.get('output_dir', 'ensembl_pipeline_output')
         trees_cfg = snakemake.config.get('trees', {})
@@ -181,11 +320,9 @@ def main():
         out_tar = os.path.join(output_dir, "Phylogenetic_Trees.tar.gz")
         
         tools_cfg = cfg.get('tools', {})
-        mafft_bin = tools_cfg.get('mafft', 'mafft')
-        fasttree_bin = tools_cfg.get('fasttree', 'FastTree')
-        treerecs_bin = tools_cfg.get('treerecs', 'treerecs')
-        if not shutil.which(treerecs_bin) and os.environ.get("TREERECS_BIN"):
-            treerecs_bin = os.environ["TREERECS_BIN"]
+        mafft_bin = resolve_tool_bin(tools_cfg.get('mafft'), ['mafft'])
+        fasttree_bin = resolve_tool_bin(tools_cfg.get('fasttree'), ['FastTree', 'fasttree'])
+        treerecs_bin = resolve_tool_bin(tools_cfg.get('treerecs') or os.environ.get("TREERECS_BIN"), ['treerecs'])
             
         trees_cfg = cfg.get('trees', {})
         contraction_threshold = trees_cfg.get('contraction_threshold', 0.8)
@@ -232,12 +369,22 @@ def main():
                 contraction_threshold, reroot
             ): gid for gid, genes in eligible.items()
         }
+        msa_stats_list = []
+        all_pair_pids = {}
         for future in concurrent.futures.as_completed(futures):
             gid = futures[future]
             try:
-                success, err_msg = future.result()
+                res = future.result()
+                success, err_msg = res[0], res[1]
+                stats = res[2] if len(res) > 2 else None
+                pids = res[3] if len(res) > 3 else None
                 if success:
                     completed += 1
+                    if stats:
+                        stats['ens_orthogroup_id'] = gid
+                        msa_stats_list.append(stats)
+                    if pids:
+                        all_pair_pids.update(pids)
                 else:
                     errors += 1
                     error_log.append((gid, err_msg))
@@ -261,6 +408,25 @@ def main():
                 ef.write(f"{gid}\t{msg}\n")
         print(f"Logged {len(error_log)} errors to {err_file}")
     
+    # Export MSA conservation summary metrics
+    if msa_stats_list:
+        df_msa = pd.DataFrame(msa_stats_list)
+        cols = ['ens_orthogroup_id', 'n_seqs', 'msa_aln_length', 'msa_mean_pid', 'msa_conserved_sites_pct', 'msa_gap_pct']
+        df_msa = df_msa[cols].sort_values(by='ens_orthogroup_id')
+        
+        # Save inside out_dir (to be archived in Phylogenetic_Trees.tar.gz)
+        msa_scores_internal = os.path.join(out_dir, "MSA_Summary_Scores.tsv")
+        df_msa.to_csv(msa_scores_internal, sep='\t', index=False)
+        
+        # Save directly in output_dir (accessible without untarring)
+        msa_scores_external = os.path.join(output_dir, "MSA_Summary_Scores.tsv")
+        df_msa.to_csv(msa_scores_external, sep='\t', index=False)
+        print(f"Exported MSA conservation summary scores for {len(df_msa)} orthogroups to {msa_scores_external}")
+
+    # Annotate pairwise orthology tables with atlas_msa_pairwise_identity
+    pairwise_dir = os.path.join(output_dir, "pairwise_tables")
+    annotate_pairwise_tables(pairwise_dir, all_pair_pids)
+
     print(f"Archiving results into {out_tar}...")
     with tarfile.open(out_tar, "w:gz") as tar:
         tar.add(out_dir, arcname="Phylogenetic_Trees")
