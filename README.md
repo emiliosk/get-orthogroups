@@ -2,7 +2,8 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Snakemake](https://img.shields.io/badge/snakemake-≥7.0-brightgreen.svg)](https://snakemake.readthedocs.io/)
-[![Ensembl v115](https://img.shields.io/badge/ensembl-v115-orange.svg)](https://www.ensembl.org/)
+[![Ensembl v109](https://img.shields.io/badge/ensembl-v109-orange.svg)](https://www.ensembl.org/)
+[![Ensembl v115+](https://img.shields.io/badge/ensembl-v115%2B-orange.svg)](https://www.ensembl.org/)
 [![Version](https://img.shields.io/badge/version-v0.2-blue.svg)](https://github.com/emiliosk/get-orthogroups)
 
 A Snakemake workflow for mammalian orthology inference. The pipeline processes Ensembl Compara pairwise homologies via dual-track transitivity clustering, evaluates local gene-order conservation using a chromosome-bounded neighborhood Jaccard metric, and ranks multi-copy orthologs through a sequential hierarchy of sequence and synteny criteria.
